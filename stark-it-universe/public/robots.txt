@@ -1,0 +1,4 @@
+# Stark IT Universe homepage. While this is a design demo on a staging URL,
+# change "Allow: /" to "Disallow: /" if it should not be indexed.
+User-agent: *
+Allow: /

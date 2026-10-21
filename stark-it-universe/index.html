@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en" data-tier="lite">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Stark IT Universe | Smart Classrooms &amp; IT Solutions for Schools in Delhi-NCR</title>
+    <meta
+      name="description"
+      content="Smart classes, interactive flat panels, projectors, laptops and CAT-6 networking for schools: set up, maintained and repaired from our base in Ghaziabad."
+    />
+    <meta name="theme-color" content="#060A22" />
+    <!--brand-favicon-->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <!--
+      Google Fonts are requested right after the first paint, so they are
+      never on the critical path (LCP on phones). The page first paints with
+      metric-matched fallbacks (src/styles/tokens.css) and then swaps, with
+      almost no layout shift. Repeat visits use the cached fonts.
+    -->
+    <script>
+      (function () {
+        var href =
+          'https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Poppins:wght@400;500;600&family=Unbounded:wght@500..800&display=swap';
+        var done = false;
+        function load() {
+          if (done) return;
+          done = true;
+          var l = document.createElement('link');
+          l.rel = 'stylesheet';
+          l.href = href;
+          l.id = 'siu-fonts';
+          document.head.appendChild(l);
+        }
+        try {
+          var po = new PerformanceObserver(function (list) {
+            if (list.getEntriesByName('first-contentful-paint').length) {
+              po.disconnect();
+              setTimeout(load, 0);
+            }
+          });
+          po.observe({ type: 'paint', buffered: true });
+        } catch (e) {}
+        setTimeout(load, 2500);
+      })();
+    </script>
+    <noscript>
+      <link
+        rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Poppins:wght@400;500;600&family=Unbounded:wght@500..800&display=swap"
+      />
+    </noscript>
+    <script>
+      /*
+        Decides the device tier before first paint so the layout never jumps.
+        FULL = 3D world. LITE = 2D scenes. Rules come from the brief; the
+        React hook src/hooks/useDeviceTier.ts keeps this up to date later
+        (frame-rate check, Lite switch, resize, Reduce Motion changes).
+      */
+      (function () {
+        var d = document.documentElement;
+        try {
+          var mm = function (q) { return !!(window.matchMedia && window.matchMedia(q).matches); };
+          var reduce = mm('(prefers-reduced-motion: reduce)');
+          if (reduce) d.setAttribute('data-motion', 'reduce');
+          var n = navigator, c = n.connection, why = '';
+          if (reduce) why = 'reduced-motion';
+          else if (window.innerWidth < 768) why = 'small-screen';
+          else if (n.deviceMemory && n.deviceMemory <= 4) why = 'low-memory';
+          else if (c && c.saveData) why = 'save-data';
+          else {
+            try { if (sessionStorage.getItem('siu-low-fps') === '1') why = 'low-fps'; } catch (e) {}
+          }
+          var gl = true;
+          if (!why) {
+            try {
+              var cv = document.createElement('canvas');
+              var ctx = cv.getContext('webgl2') || cv.getContext('webgl');
+              if (!ctx) gl = false;
+              else {
+                // Software WebGL (no GPU) can't run the 3D scenes smoothly.
+                var dbg = ctx.getExtension('WEBGL_debug_renderer_info');
+                var name = dbg ? String(ctx.getParameter(dbg.UNMASKED_RENDERER_WEBGL)) : '';
+                if (/swiftshader|llvmpipe|softpipe|software|basic render/i.test(name)) why = 'software-webgl';
+                var ext = ctx.getExtension('WEBGL_lose_context'); if (ext) ext.loseContext();
+              }
+            } catch (e) { gl = false; }
+            if (!gl) why = 'no-webgl';
+          }
+          var override = null;
+          try { override = localStorage.getItem('siu-lite'); } catch (e) {}
+          var auto = why ? 'lite' : 'full';
+          var tier = override === 'on' ? 'lite' : override === 'off' && gl ? 'full' : auto;
+          d.setAttribute('data-tier', tier);
+          d.setAttribute('data-tier-auto', auto);
+          // Intro: FULL only, once per session, never with Reduce Motion or a deep link.
+          if (tier === 'full' && !reduce && !location.hash) {
+            var seen = null;
+            try { seen = sessionStorage.getItem('siu-intro-seen'); } catch (e) {}
+            if (!seen) d.setAttribute('data-intro', 'play');
+          }
+          if (why) d.setAttribute('data-tier-reason', why);
+          if (!gl) d.setAttribute('data-webgl', 'no');
+        } catch (e) {
+          d.setAttribute('data-tier', 'lite');
+        }
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"><!--app-html--></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

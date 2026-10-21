@@ -1,0 +1,179 @@
+/*
+  Stark IT Universe design tokens.
+  Brand colours come from the brief. Everything else (ink shades, surfaces)
+  is derived from them and was checked for >= 4.5:1 text contrast.
+*/
+:root {
+  /* Brand */
+  --night-sky: #060a22;
+  --deep-space: #0b1640;
+  --siu-gold: #ffb52e;
+  --universe-blue: #3152f5; /* on light; dark scenes override below */
+  --orbit: #6f86ff;
+  --paper: #f5f7fc;
+
+  /* Planets, one per service */
+  --planet-smartclass: #8b5cf6;
+  --planet-ifp: #06b6d4;
+  --planet-projector: #ec4899;
+  --planet-laptop: #3b82f6;
+  --planet-network: #10b981;
+
+  /* Derived */
+  --gold-deep: #f08a00;
+  --white: #ffffff;
+  --ink: #0b1640;
+  --ink-soft: #39446b; /* 8.8:1 on paper */
+  --ink-line: #6b7598; /* 4.5:1 on white: form borders */
+  --error: #b42318;
+  --success: #067647;
+
+  /* Surfaces on dark */
+  --panel-dark: rgba(11, 22, 64, 0.88);
+  --glass-dark: rgba(11, 22, 64, 0.78);
+  --glass-light: rgba(255, 255, 255, 0.84);
+  --hairline-dark: rgba(147, 172, 255, 0.22);
+  --hairline-light: rgba(11, 22, 64, 0.12);
+
+  /* Type */
+  --font-display: 'Unbounded', 'Unbounded Fallback', 'Unbounded Fallback R', system-ui, sans-serif;
+  --font-body: 'Poppins', 'Poppins Fallback', 'Poppins Fallback R', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', 'JetBrains Mono Fallback', ui-monospace, 'SFMono-Regular', monospace;
+  --text-body: 1.0625rem; /* 17px */
+
+  /* Layout */
+  --header-h: 60px;
+  --header-top: 12px;
+  --header-space: calc(var(--header-h) + var(--header-top) + 16px);
+  --mobile-bar-h: 0px;
+  --content-max: 1160px;
+  --gutter: 16px;
+  --radius-sm: 12px;
+  --radius: 20px;
+  --radius-lg: 28px;
+
+  /* Motion */
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@media (min-width: 640px) {
+  :root {
+    --gutter: 24px;
+  }
+}
+
+@media (min-width: 1024px) {
+  :root {
+    /* Leaves room for the section index on the right edge. */
+    --gutter: 80px;
+  }
+}
+
+@media (max-width: 767.98px) {
+  :root {
+    --font-display: 'Unbounded', 'Unbounded Fallback M', 'Unbounded Fallback R', system-ui, sans-serif;
+    --mobile-bar-h: calc(48px + env(safe-area-inset-bottom, 0px));
+    --header-h: 56px;
+    --header-top: 8px;
+  }
+}
+
+/*
+  Per-scene colour roles. Every <section> sets data-theme (the header reads
+  it to pick its logo). Cards that flip colour inside a scene use the
+  .on-dark / .on-light classes instead, so they don't affect the header.
+*/
+[data-theme='dark'],
+.on-dark {
+  --fg: #ffffff;
+  --fg-muted: #b9c4ee; /* 11:1 on night sky */
+  --universe-blue: #93acff;
+  --link: #93acff;
+  --surface: var(--panel-dark);
+  --hairline: var(--hairline-dark);
+  --eyebrow: var(--siu-gold);
+  --ph-bg: rgba(255, 181, 46, 0.12);
+  --ph-border: rgba(255, 181, 46, 0.6);
+  --ph-fg: #ffd58a;
+  color: var(--fg);
+}
+
+[data-theme='light'],
+.on-light {
+  --fg: var(--deep-space);
+  --fg-muted: var(--ink-soft);
+  --universe-blue: #3152f5;
+  --link: #3152f5;
+  --surface: #ffffff;
+  --hairline: var(--hairline-light);
+  --eyebrow: #3152f5;
+  --ph-bg: #fff3da;
+  --ph-border: #b7791f;
+  --ph-fg: #7a4b00;
+  color: var(--fg);
+}
+
+/*
+  Fallback faces sized to the web fonts' measured widths (Unbounded is about
+  1.10-1.15x Arial Black, Poppins 1.09x Arial, JetBrains Mono 1.09x
+  Consolas), so text wraps the same before and after the fonts load and the
+  layout does not jump (CLS). The "R" faces cover Android, which has Roboto
+  instead of Arial. font-display: swap matters: without it these local
+  faces default to "block" and hide text until the system font lookup
+  finishes, which delays the first paint by up to seconds.
+*/
+@font-face {
+  font-family: 'Unbounded Fallback';
+  font-display: swap;
+  src: local('Arial Black');
+  size-adjust: 112%;
+  ascent-override: 90%;
+  descent-override: 22%;
+}
+
+/* Phones: headings are narrower, so a wider match keeps line breaks equal. */
+@font-face {
+  font-family: 'Unbounded Fallback M';
+  font-display: swap;
+  src: local('Arial Black');
+  size-adjust: 118%;
+  ascent-override: 90%;
+  descent-override: 22%;
+}
+
+@font-face {
+  font-family: 'Unbounded Fallback R';
+  font-display: swap;
+  src: local('Roboto');
+  size-adjust: 136%;
+  ascent-override: 90%;
+  descent-override: 22%;
+}
+
+@font-face {
+  font-family: 'Poppins Fallback';
+  font-display: swap;
+  src: local('Arial');
+  size-adjust: 109%;
+  ascent-override: 93%;
+  descent-override: 31%;
+  line-gap-override: 9%;
+}
+
+@font-face {
+  font-family: 'Poppins Fallback R';
+  font-display: swap;
+  src: local('Roboto');
+  size-adjust: 111%;
+  ascent-override: 93%;
+  descent-override: 31%;
+  line-gap-override: 9%;
+}
+
+@font-face {
+  font-family: 'JetBrains Mono Fallback';
+  font-display: swap;
+  src: local('Consolas');
+  size-adjust: 109%;
+}
