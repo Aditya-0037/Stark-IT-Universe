@@ -239,9 +239,10 @@ export function ClassroomModel() {
         [0.06, 0.12, 0.06],
         [11.85, 0.12, 0.06],
       ],
+      // the IFP's feed rises at its right edge, behind the panel (never across the screen)
       [
-        [4.5, 0.12, 0.06],
-        [4.5, 2.0, 0.06],
+        [6.08, 0.12, 0.05],
+        [6.08, 2.15, 0.05],
       ],
       [
         [11.85, 0.12, 0.06],
@@ -318,7 +319,10 @@ export function ClassroomModel() {
       rack: mergedBoxes([[0.15, 0, 8.45, 1.2, 2.5, 9.5]]),
       ports: mergedBoxes(ports),
       leds: mergedBoxes(leds),
-      trunking: mergedBoxes([[0.05, 0, 6.3, 10.95, 0.07, 6.5]]),
+      trunking: mergedBoxes([
+        [0.05, 0, 6.3, 10.95, 0.07, 6.5],
+        [5.98, 0.1, 0.0, 6.18, 2.05, 0.11], // conduit hiding the IFP's feed
+      ]),
       skirting: mergedBoxes([
         [0, 0, 0, 12, 0.22, 0.025],
         [0, 0, 0, 0.025, 0.22, 10],

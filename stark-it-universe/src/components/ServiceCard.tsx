@@ -1,6 +1,7 @@
 import { useRef, useState, type CSSProperties, type MouseEvent, type PointerEvent } from 'react';
 import { en } from '../content/en';
 import type { Service } from '../content/services';
+import { servicePaths } from '../content/business';
 import { useReducedMotion } from '../hooks/useReducedMotion';
 import { goToQuote } from '../lib/quoteStore';
 import { Button } from './Button';
@@ -111,6 +112,7 @@ export function ServiceCard({ service: s }: { service: Service }) {
           <Button variant="primary" className="svc-card__cta" onClick={() => goToQuote({ service: s.name })}>
             {p.quoteThis}
           </Button>
+          <a className="svc-card__details" href={servicePaths[s.id]}>Scope, process and support</a>
         </div>
       </div>
     </article>

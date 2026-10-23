@@ -1,10 +1,12 @@
 import { useFrame, type ThreeEvent } from '@react-three/fiber';
 import { useMemo, useRef } from 'react';
 import * as THREE from 'three';
-import { activeIndex, dwell, journey, STATION_COUNT } from '../lib/journey';
+import { activeIndex, floatIndex, journey, STATION_COUNT } from '../lib/journey';
 import { scrollToId } from '../lib/scroll';
+import { diveSpace, setDiveStart } from './dive';
 import { isPassthrough } from './Planet';
 import { Satellite } from './Satellite';
+import { stage } from './stage';
 import { shared } from './system';
 
 /**
@@ -26,6 +28,8 @@ function buildRoute() {
 export const ROUTE = buildRoute();
 export const STATION_POINTS = Array.from({ length: STATION_COUNT }, (_, i) => ROUTE.getPointAt(i / (STATION_COUNT - 1)));
 export const ROUTE_CENTER = new THREE.Vector3(0, 0, 6);
+// the descent starts where the satellite rests at station 05
+setDiveStart(STATION_POINTS[STATION_POINTS.length - 1].clone().add(new THREE.Vector3(0, 0.42, 0)));
 
 const BLUE = new THREE.Color('#6F86FF');
 const GOLD_HDR = new THREE.Color(2.4, 1.35, 0.22);
@@ -37,7 +41,6 @@ export function RouteScene({ reduced }: { reduced: boolean }) {
   const group = useRef<THREE.Group>(null);
   const sat = useRef<THREE.Group>(null);
   const stations = useRef<(THREE.Group | null)[]>([]);
-  const satU = useRef(0);
   const tmp = useMemo(() => new THREE.Vector3(), []);
 
   const tube = useMemo(() => new THREE.TubeGeometry(ROUTE, 360, 0.03, 8, false), []);
@@ -66,19 +69,23 @@ export function RouteScene({ reduced }: { reduced: boolean }) {
     g.visible = vis > 0.002;
     if (!g.visible) return;
 
-    const f = reduced ? activeIndex(journey.route, STATION_COUNT) : dwell(journey.route, STATION_COUNT);
-    const target = f / (STATION_COUNT - 1);
-    satU.current = reduced ? target : satU.current + (target - satU.current) * (1 - Math.exp(-dt * 6));
-    const u = THREE.MathUtils.clamp(satU.current, 0, 1);
+    // the satellite follows the scroll exactly (the scroll is the only smoothing)
+    const f = reduced ? activeIndex(journey.route, STATION_COUNT) : floatIndex(journey.route, STATION_COUNT);
+    const u = THREE.MathUtils.clamp(f / (STATION_COUNT - 1), 0, 1);
 
     baseMat.opacity = vis * 0.55;
     progMat.opacity = vis;
     const idx = progress.index!.count;
     progress.setDrawRange(0, Math.floor((idx * u) / 3) * 3);
 
-    // satellite
+    // satellite: on the route, or diving toward Earth during the descent
     const s = sat.current;
-    if (s) {
+    if (s && stage.descent > 0) {
+      const k = diveSpace(stage.descent, s.position, shared.satelliteTangent);
+      s.lookAt(tmp.copy(s.position).add(shared.satelliteTangent));
+      s.scale.setScalar(k);
+      s.getWorldPosition(shared.satellite);
+    } else if (s) {
       ROUTE.getPointAt(u, tmp);
       const bob = reduced ? 0 : Math.sin(state.clock.elapsedTime * 2) * 0.05;
       s.position.set(tmp.x, tmp.y + 0.42 + bob, tmp.z);

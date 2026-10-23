@@ -1,21 +1,23 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { en } from '../content/en';
 import { Satellite2D } from '../components/illustrations/Satellite2D';
 import { Rich } from '../components/Placeholder';
 import { Scene, SceneTitle } from '../components/Scene';
 import { useFullLayout } from '../hooks/useFullLayout';
-import { stickyScrollY, useStickyProgress } from '../hooks/useStickyProgress';
-import { activeIndex, progressFor, STATION_COUNT } from '../lib/journey';
+import { STATION_COUNT } from '../lib/journey';
 import { registerAnchorResolver, scrollToId } from '../lib/scroll';
+import { measured } from '../lib/timeline';
+import { stepIndex } from '../story/steps';
+import { itemFor, story } from '../story/store';
 
 const useIsoLayoutEffect = typeof window === 'undefined' ? useEffect : useLayoutEffect;
 
 /**
  * Scene 3: how we work, the orbit route.
  *
- * FULL: pinned. Scrolling moves the gold 3D satellite along the orbit route
- * from station to station; the station buttons (HTML twins of the 3D
- * stations) jump to a station.
+ * FULL: pinned. Each scroll gesture moves the gold 3D satellite along the
+ * orbit route to the next station; the station buttons (HTML twins of the
+ * 3D stations) jump to a station.
  *
  * LITE: a numbered vertical list on an orbit line. The 2D satellite moves
  * to the active station when a station is chosen or scrolled to.
@@ -25,24 +27,23 @@ export function Route() {
   const full = useFullLayout();
   const sectionRef = useRef<HTMLElement>(null);
   const listRef = useRef<HTMLOListElement>(null);
-  const [active, setActive] = useState(0);
+  const [liteActive, setActive] = useState(0);
   const [satTop, setSatTop] = useState<number | null>(null);
   const lastClick = useRef(0);
+  // FULL: the station the story rests on (changes when a move lands).
+  const step = story.useStore((s) => s.step);
+  const active = full ? itemFor('route', step) : liteActive;
 
-  const onProgress = useCallback((p: number) => setActive(activeIndex(p, STATION_COUNT)), []);
-  useStickyProgress(sectionRef, 'route', full, onProgress);
-
-  // FULL: #station-<n> scrolls to that station's place in the pinned scene.
+  // FULL: #station-<n> travels to that station's step.
   useEffect(() => {
     if (!full) return;
     return registerAnchorResolver((id) => {
       const m = /^station-(\d)$/.exec(id);
-      const section = sectionRef.current;
-      if (!m || !section) return null;
+      if (!m) return null;
       const i = Number(m[1]) - 1;
       if (i < 0 || i >= STATION_COUNT) return null;
       return {
-        y: stickyScrollY(section, progressFor(i, STATION_COUNT)),
+        y: measured().stepY[stepIndex(`station-${i + 1}`)],
         focus: document.querySelector<HTMLElement>(`#station-${i + 1} .station__btn`),
       };
     });

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { startTransition, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 
 interface Props {
   /** Accessible description; the box is announced as one image. */
@@ -16,8 +16,11 @@ interface Props {
  * Draws a heavy decorative illustration only when it comes near the
  * viewport. Until then an empty box of the same size holds its place (no
  * layout shift) and carries its description. Keeps the initial page small
- * so the first paint is fast on phones. A box hidden with display: none
- * (e.g. when the 3D layer replaces it) never draws at all.
+ * so the first paint is fast on phones. It is also drawn ahead, in idle time
+ * a few seconds after load in LITE (React renders it in slices), so it
+ * rarely has to mount in the middle of a scroll, where it is one long frame
+ * on a slow phone. A box hidden with display: none (e.g. when the 3D layer replaces
+ * it) never draws at all.
  */
 export function LazyVisual({ label, ratio, className = '', style, rootMargin = '800px 0px', children }: Props) {
   const ref = useRef<HTMLDivElement>(null);
@@ -30,17 +33,25 @@ export function LazyVisual({ label, ratio, className = '', style, rootMargin = '
       setShow(true);
       return;
     }
-    const io = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          setShow(true);
-          io.disconnect();
-        }
-      },
-      { rootMargin },
-    );
+    const draw = () => {
+      io.disconnect();
+      startTransition(() => setShow(true));
+    };
+    const io = new IntersectionObserver(([entry]) => entry.isIntersecting && draw(), { rootMargin });
     io.observe(el);
-    return () => io.disconnect();
+    const w = window as Window & typeof globalThis;
+    // (not in FULL, where the 3D layer replaces it once loaded)
+    const ahead = () => document.documentElement.dataset.tier === 'lite' && el.getClientRects().length > 0 && draw();
+    const delay = window.setTimeout(() => {
+      if (typeof w.requestIdleCallback === 'function') idle = w.requestIdleCallback(ahead, { timeout: 3000 });
+      else ahead();
+    }, 2500);
+    let idle = 0;
+    return () => {
+      io.disconnect();
+      window.clearTimeout(delay);
+      if (idle) w.cancelIdleCallback(idle);
+    };
   }, [rootMargin]);
 
   return (

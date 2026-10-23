@@ -2,15 +2,16 @@ import { useEffect, useRef } from 'react';
 import { en } from '../content/en';
 import { Scene, SceneTitle } from '../components/Scene';
 import { useFullLayout } from '../hooks/useFullLayout';
-import { stickyScrollY } from '../hooks/useStickyProgress';
 import { registerAnchorResolver } from '../lib/scroll';
+import { measured } from '../lib/timeline';
+import { stepIndex } from '../story/steps';
 
 /**
  * Scene 4: the descent from orbit to the campus.
- * FULL: pinned for about two screens of scrolling. The 3D camera falls
- *       through the clouds, over the campus and into the glowing classroom
- *       window. The heading sits on a solid panel, bottom-left, only while
- *       the campus is in view (scrollDriver fades it).
+ * FULL: three story steps (src/story/steps.ts): the satellite dives to the
+ *       cloud deck, through the clouds to the campus, in through the glowing
+ *       window. The heading sits on a solid panel, bottom-left, and appears
+ *       when the campus step has landed.
  * LITE: one still of the same campus (rendered from the 3D scene) with the
  *       heading on its panel.
  */
@@ -19,13 +20,13 @@ export function Descent() {
   const full = useFullLayout();
   const sectionRef = useRef<HTMLElement>(null);
 
-  // FULL: #descent scrolls to where the campus and the heading show.
+  // FULL: #descent travels to the campus step, where the heading shows.
   useEffect(() => {
     if (!full) return;
     return registerAnchorResolver((id) => {
       const section = sectionRef.current;
       if (id !== 'descent' || !section) return null;
-      return { y: stickyScrollY(section, 0.68), focus: section.querySelector<HTMLElement>('h2') };
+      return { y: measured().stepY[stepIndex('campus')], focus: section.querySelector<HTMLElement>('h2') };
     });
   }, [full]);
 

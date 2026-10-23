@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { createStore } from '../lib/createStore';
 
 /**
  * World layout and the per-frame "stage" state shared by every 3D object.
@@ -42,10 +43,12 @@ export const stage = {
   cloudOpacity: 0,
   /** How far the classroom shows through the target window 0..1. */
   portal: 0,
+  /** The satellite's light on the target window 0..1 (it glows from then on). */
+  windowLit: 0,
   /** Reduce Motion: which still of the descent is shown ('', 'sky', 'campus', 'room'). */
   still: '' as '' | 'sky' | 'campus' | 'room',
   /** Vignette darkness. */
-  vignette: 0.5,
+  vignette: 0.2,
   /** Effective room power 0..4 (smoothed). */
   power: 3,
   /** Effective room night 0..1 (smoothed). */
@@ -72,13 +75,30 @@ export const refreshShadow = (which: 'campus' | 'room') => {
 };
 
 /**
+ * Which regions are fully warmed up (built, compiled and drawn once
+ * offscreen with everything shown), and whether the story text has been
+ * drawn once (scrollDriver). The story's first move waits for all of them,
+ * so no upload or shader compile ever lands in a move.
+ */
+export type PrewarmRegion = 'space' | 'room' | 'campus';
+export const prewarm = createStore({ space: false, room: false, campus: false, text: false });
+export const prewarmDone = () => {
+  const p = prewarm.get();
+  return p.space && p.room && p.campus && p.text;
+};
+
+/**
  * Shader compiles in flight (World's Precompile). Drawing with a program
  * that is still compiling blocks until it is done, so warm-up draws wait.
  */
 export const compiling = { pending: 0, finished: 0 };
 
-/** Reduce Motion crossfade: the camera asks for a snapshot of the frame before it cuts. */
-export const crossfade = { request: false, ready: false };
+/**
+ * Crossfade: the frame is copied onto a 2D canvas over the 3D layer, the
+ * camera cuts underneath, and the copy fades out over `fadeMs` (Reduce
+ * Motion stills, and fast travel to a step that is not the next one).
+ */
+export const crossfade = { request: false, ready: false, fadeMs: 400 };
 
 export const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
 export const smooth = (a: number, b: number, x: number) => THREE.MathUtils.smoothstep(x, a, b);

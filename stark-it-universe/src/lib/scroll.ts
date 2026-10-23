@@ -12,6 +12,20 @@ export function registerSmoothScroller(fn: SmoothScroller | null) {
   smooth = fn;
 }
 
+/**
+ * The page's scroll position for code that runs every frame. FULL mode
+ * registers its own reader (Lenis's value): reading window.scrollY inside a
+ * frame makes the browser lay the page out first whenever anything changed.
+ */
+const nativeScroll = () => window.scrollY;
+let readScroll: () => number = nativeScroll;
+
+export function registerScrollReader(fn: (() => number) | null) {
+  readScroll = fn ?? nativeScroll;
+}
+
+export const scrollPosition = () => readScroll();
+
 /** Scroll the page to a Y position (smoothly unless Reduce Motion). */
 export function scrollToY(y: number) {
   const top = Math.max(0, Math.round(y));

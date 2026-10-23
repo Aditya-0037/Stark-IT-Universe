@@ -1,7 +1,39 @@
+# dependencies and local tool installs
 node_modules
+.tools/
+
+# build output and generated files
 dist
 dist-ssr
-*.local
-.DS_Store
+output/
+tmp/
+.vite/
+coverage/
+*.tsbuildinfo
+
+# test and audit reports
+test-results/
+playwright-report/
 lighthouse-*.html
 lighthouse-*.json
+
+# environment files (.env.example is kept)
+.env
+.env.*
+!.env.example
+*.local
+
+# logs
+*.log
+npm-debug.log*
+
+# Python caches (scripts/)
+__pycache__/
+*.pyc
+
+# editor and OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini

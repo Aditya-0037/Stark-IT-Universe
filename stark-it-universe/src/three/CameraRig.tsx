@@ -1,11 +1,12 @@
 import { useFrame, useThree } from '@react-three/fiber';
 import { useMemo, useRef, type RefObject } from 'react';
 import * as THREE from 'three';
-import { activeIndex, dwell, HOTSPOT_COUNT, journey, PLANET_COUNT, STATION_COUNT } from '../lib/journey';
+import { activeIndex, floatIndex, HOTSPOT_COUNT, journey, PLANET_COUNT, STATION_COUNT } from '../lib/journey';
 import { TARGET } from './campus/layout';
 import { applyStill } from './Director';
 import { ROUTE_CENTER } from './RouteScene';
-import { CAMPUS, crossfade, DESCENT_CUT, ROOM, stage } from './stage';
+import { campusToWorld, DIVE, diveCampus, diveSpace, followSpace } from './dive';
+import { CAMPUS, crossfade, DESCENT_CUT, ROOM, smooth, stage } from './stage';
 import { ORBITS, shared } from './system';
 
 /**
@@ -81,8 +82,7 @@ function planetPose(i: number, out: Pose, wide: boolean) {
   return out;
 }
 
-function routePose(out: Pose, wide: boolean) {
-  const s = shared.satellite;
+function routePose(out: Pose, wide: boolean, s: THREE.Vector3 = shared.satellite) {
   out.pos.set(s.x * 0.5, 9.5, wide ? 22 : 28);
   out.target.copy(ROUTE_CENTER).lerp(s, 0.5);
   out.target.y = -0.4;
@@ -92,26 +92,31 @@ function routePose(out: Pose, wide: boolean) {
   return out;
 }
 
-// ---- descent: one path from the route down into the classroom window -----------
-// Progress p (0..1 over the pinned #descent scene) -> curve parameter. Key
-// points are campus-local (+ CAMPUS); the first is the route pose, per frame.
-//   0-25 %  the camera tips over and falls; stars streak and fade
-//   25-55 % down through three cloud layers, the campus glimpsed in the gaps
-//   55-80 % the clouds part: high 3/4 aerial, arcing down to the diorama's
-//           isometric angle (about 33 deg pitch, 45 deg yaw, fov 28)
+// ---- descent: we follow the satellite down through the clouds to one window ---------
+// Progress p (0..1 over the pinned #descent scene), see dive.ts:
+//   0-30 %  in space: from the route pose the camera swings in close behind the
+//           satellite and follows it down toward Earth (the horizon, Earth's
+//           glowing edge, stays in the top of the frame)
+//   ~30 %   inside the cloud deck (whiteout) space swaps to the campus
+//   30-50 % down through the clouds behind the satellite; the fog opens
+//   50-80 % under the clouds the camera levels out: the town and the campus
+//           ahead, the horizon in the top quarter of the frame, the school's
+//           front and right facades towards the camera; the satellite lights
+//           the window
 //   80-100% glide to the glowing first-floor window until it fills the screen
+// Key points from the swap on are campus-local (+ CAMPUS).
 const T = TARGET.center;
 const N = TARGET.normal;
 const at = (d: number, dy = 0, dz = 0) => [T.x + N.x * d, T.y + dy, T.z + N.z * d + dz];
 const DESCENT: { p: number; pos: number[]; look: number[]; fov: number; offset: number }[] = [
-  { p: 0, pos: [0, 0, 0], look: [0, 0, 0], fov: 38, offset: 0 }, // route pose
-  { p: 0.1, pos: [3, 195, 33], look: [1, 176, -40], fov: 40, offset: 0.05 },
-  { p: 0.25, pos: [6, 166, 42], look: [0, 70, 4], fov: 40, offset: 0 },
-  { p: 0.4, pos: [10, 132, 50], look: [0, 25, 4], fov: 38, offset: 0 },
-  { p: 0.55, pos: [22, 104, 64], look: [0, 4, 0], fov: 35, offset: 0.1 },
-  { p: 0.65, pos: [46, 94, 78], look: [0, 2, -2], fov: 32, offset: 0.12 },
-  { p: 0.8, pos: [82, 77, 82], look: [0, 2, -3], fov: 28, offset: 0.12 },
-  { p: 0.86, pos: [40, 16, 10], look: at(-1, 0.05), fov: 28, offset: 0.03 },
+  { p: DIVE.swap, pos: [106, 162, 152], look: [88, 150, 132], fov: 42, offset: 0 },
+  { p: 0.42, pos: [100, 144, 142], look: [76, 128, 112], fov: 41, offset: 0.02 },
+  { p: 0.47, pos: [94, 126, 132], look: [62, 98, 86], fov: 40, offset: 0.05 },
+  { p: 0.52, pos: [90, 112, 124], look: [30, 82, 46], fov: 38, offset: 0.08 },
+  { p: 0.58, pos: [118, 92, 142], look: [24, 66, 30], fov: 38, offset: 0.11 },
+  { p: 0.68, pos: [84, 46, 100], look: [0, 23, 0], fov: 38, offset: 0.12 },
+  { p: 0.8, pos: [60, 24, 52], look: [14, 10, -4], fov: 33, offset: 0.1 },
+  { p: 0.86, pos: [40, 15, 10], look: at(-1, 0.05), fov: 28, offset: 0.03 },
   { p: 0.92, pos: at(5.5, 1.25, 1.5), look: at(-1), fov: 29, offset: 0 },
   { p: 0.955, pos: at(2.1, 0.1, 0.25), look: at(-1), fov: 30, offset: 0 },
   { p: DESCENT_CUT, pos: at(1.0), look: at(-1), fov: 30, offset: 0 },
@@ -120,13 +125,25 @@ const toWorld = (v: number[]) => new THREE.Vector3(v[0], v[1], v[2]).add(CAMPUS)
 const posCurve = new THREE.CatmullRomCurve3(DESCENT.map((k) => toWorld(k.pos)), false, 'centripetal');
 const lookCurve = new THREE.CatmullRomCurve3(DESCENT.map((k) => toWorld(k.look)), false, 'centripetal');
 const routeStart = newPose();
+const diveStart = new THREE.Vector3();
+const follow = { pos: new THREE.Vector3(), look: new THREE.Vector3(), sat: new THREE.Vector3(), dir: new THREE.Vector3() };
 
 function descentPose(out: Pose, p: number, wide: boolean) {
-  // the path starts exactly where the route scene left the camera
-  routePose(routeStart, wide);
-  posCurve.points[0].copy(routeStart.pos);
-  lookCurve.points[0].copy(routeStart.target);
-  const q = Math.min(Math.max(p, 0), DESCENT_CUT);
+  out.region = 'world';
+  if (p < DIVE.swap) {
+    // space: from the route pose (exactly where the route scene left the
+    // camera) in behind the diving satellite
+    diveSpace(0, diveStart, follow.dir);
+    routePose(routeStart, wide, diveStart);
+    followSpace(p, follow.pos, follow.look);
+    const w = ease(smooth(0, 0.08, p));
+    out.pos.lerpVectors(routeStart.pos, follow.pos, w);
+    out.target.lerpVectors(routeStart.target, follow.look, w);
+    out.fov = 38 + 4 * w;
+    out.offset = wide ? routeStart.offset * (1 - w) : 0;
+    return out;
+  }
+  const q = Math.min(p, DESCENT_CUT);
   let i = 0;
   while (i < DESCENT.length - 2 && q > DESCENT[i + 1].p) i++;
   const a = DESCENT[i];
@@ -135,17 +152,18 @@ function descentPose(out: Pose, p: number, wide: boolean) {
   const t = (i + f) / (DESCENT.length - 1);
   posCurve.getPoint(t, out.pos);
   lookCurve.getPoint(t, out.target);
+  // through the clouds the camera keeps the satellite in view
+  const ws = 1 - smooth(0.46, 0.53, q);
+  if (ws > 0) out.target.lerp(campusToWorld(diveCampus(q, follow.sat, follow.dir), follow.sat), ws * 0.8);
   out.fov = a.fov + (b.fov - a.fov) * f;
-  const ao = i === 0 ? routeStart.offset : a.offset;
-  out.offset = wide ? ao + (b.offset - ao) * f : 0;
-  out.region = 'world';
+  out.offset = wide ? a.offset + (b.offset - a.offset) * f : 0;
   return out;
 }
 
 // Reduce Motion: the descent as three stills (sky with clouds, campus, classroom).
-const skyStill = (out: Pose) => set(out, [30, 137, 95], [0, 118, 0], 0, 40, 'world', CAMPUS);
+const skyStill = (out: Pose) => set(out, [70, 124, 112], [20, 96, 40], 0, 40, 'world', CAMPUS);
 const campusStill = (out: Pose, wide: boolean) => {
-  const k = DESCENT[6];
+  const k = DESCENT.find((d) => d.p === 0.68)!;
   return set(out, k.pos, k.look, wide ? k.offset : 0, k.fov, 'world', CAMPUS);
 };
 
@@ -177,6 +195,12 @@ const overviewPose = (out: Pose, wide: boolean) => roomPose(out, [24, 18, 26], [
  */
 const portalPose = newPose();
 const pullV = new THREE.Vector3();
+/** Where the camera is at descent progress p (wide screen), for placing things on its path. */
+const pathPose = newPose();
+export function descentCameraAt(p: number, out: THREE.Vector3) {
+  return out.copy(descentPose(pathPose, p, true).pos);
+}
+
 export function poseRoomOverview(cam: THREE.PerspectiveCamera, width: number, height: number, pullBack = 0) {
   overviewPose(portalPose, width >= 900);
   if (pullBack) {
@@ -216,7 +240,7 @@ export function CameraRig({ reduced, fadeRef }: { reduced: boolean; fadeRef: Ref
   const cur = useRef<Pose & { ready: boolean }>({ ...newPose(), ready: false });
   const cut = useRef<{ key: string; pending: number }>({ key: '', pending: 0 });
 
-  useFrame((_, dt) => {
+  useFrame(() => {
     const wide = size.width >= 900;
     const j = journey;
     const { a, b, goal } = poses;
@@ -252,15 +276,15 @@ export function CameraRig({ reduced, fadeRef }: { reduced: boolean; fadeRef: Ref
         key = `planet-${i}`;
       } else heroPose(goal, wide);
     } else if (j.toBuild > 0) {
-      mixPose(switchPose(a, wide), buildPose(b, wide), ease(j.toBuild), goal, 1.2);
+      mixPose(switchPose(a, wide), buildPose(b, wide), j.toBuild, goal, 1.2);
     } else if (j.toSwitch > 0) {
-      mixPose(devicePose(HOTSPOT_COUNT - 1, a, wide), switchPose(b, wide), ease(j.toSwitch), goal, 0.8);
+      mixPose(devicePose(HOTSPOT_COUNT - 1, a, wide), switchPose(b, wide), j.toSwitch, goal, 0.8);
     } else if (stage.room) {
       // through the window: classroom overview, then device 1..5
       if (j.classroom <= 0) {
-        mixPose(overviewPose(a, wide), devicePose(0, b, wide), ease(j.toClassroom), goal);
+        mixPose(overviewPose(a, wide), devicePose(0, b, wide), j.toClassroom, goal);
       } else {
-        const f = dwell(j.classroom, HOTSPOT_COUNT);
+        const f = floatIndex(j.classroom, HOTSPOT_COUNT);
         const i = Math.floor(f);
         const t = f - i;
         if (t < 0.001) devicePose(i, goal, wide);
@@ -270,15 +294,15 @@ export function CameraRig({ reduced, fadeRef }: { reduced: boolean; fadeRef: Ref
       descentPose(goal, stage.descent, wide);
       key = 'descent';
     } else if (j.toPlanets < 1) {
-      mixPose(heroPose(a, wide), planetPose(0, b, wide), ease(j.toPlanets), goal, 2.2);
+      mixPose(heroPose(a, wide), planetPose(0, b, wide), j.toPlanets, goal, 2.2);
     } else if (j.toRoute <= 0) {
-      const f = dwell(j.planets, PLANET_COUNT);
+      const f = floatIndex(j.planets, PLANET_COUNT);
       const i = Math.floor(f);
       const t = f - i;
       if (t < 0.001) planetPose(i, goal, wide);
       else mixPose(planetPose(i, a, wide), planetPose(Math.min(i + 1, PLANET_COUNT - 1), b, wide), t, goal, 2.6);
     } else if (j.toRoute < 1) {
-      mixPose(planetPose(PLANET_COUNT - 1, a, wide), routePose(b, wide), ease(j.toRoute), goal, 3);
+      mixPose(planetPose(PLANET_COUNT - 1, a, wide), routePose(b, wide), j.toRoute, goal, 3);
     } else {
       routePose(goal, wide);
     }
@@ -326,25 +350,12 @@ export function CameraRig({ reduced, fadeRef }: { reduced: boolean; fadeRef: Ref
         showStill(key);
         if (fadeRef.current) fadeRef.current.style.opacity = '1';
       }
-    } else if (goal.region !== c.region) {
-      // In through the window (it already shows the room): a seamless switch.
-      snap();
-    } else if (key === 'descent') {
-      // The descent progress is already smoothed: follow the path closely.
-      if (stage.descent > 0.9) snap();
-      else {
-        const k = 1 - Math.exp(-Math.min(dt, 0.1) * 14);
-        c.pos.lerp(goal.pos, k);
-        c.target.lerp(goal.target, k);
-        c.offset += (goal.offset - c.offset) * k;
-        c.fov += (goal.fov - c.fov) * k;
-      }
     } else {
-      const k = 1 - Math.exp(-Math.min(dt, 0.1) * 3.2);
-      c.pos.lerp(goal.pos, k);
-      c.target.lerp(goal.target, k);
-      c.offset += (goal.offset - c.offset) * k;
-      c.fov += (goal.fov - c.fov) * k;
+      // The journey is damped by the master timeline's playhead, and every
+      // pose is continuous in it: the camera sits exactly on the path (this
+      // also makes the switch through the window, which already shows the
+      // room, seamless).
+      snap();
     }
 
     camera.position.copy(c.pos);

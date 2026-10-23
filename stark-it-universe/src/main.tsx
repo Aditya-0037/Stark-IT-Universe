@@ -1,12 +1,13 @@
 import { StrictMode } from 'react';
 import { createRoot, hydrateRoot } from 'react-dom/client';
-import { App } from './App';
+import { Root } from './Root';
 import './styles/global.css';
+import './styles/content.css';
 
 const root = document.getElementById('root')!;
 const app = (
   <StrictMode>
-    <App />
+    <Root path={window.location.pathname} />
   </StrictMode>
 );
 

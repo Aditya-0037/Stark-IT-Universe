@@ -1,4 +1,4 @@
-import { useId } from 'react';
+import { useEffect, useId, useRef } from 'react';
 import { services } from '../../content/services';
 import { IconShapes, serviceIcon } from '../Icons';
 import { SERVICE_ICON_SHAPES, type ServiceIconName } from '../iconShapes';
@@ -9,7 +9,9 @@ import { SERVICE_ICON_SHAPES, type ServiceIconName } from '../iconShapes';
  * star on the far half of each orbit and in front on the near half; inner
  * planets move faster. Each planet carries its service icon and name, and
  * both stay upright while it orbits. Animation is CSS only (see .emblem in
- * global.css) and stops under Reduce Motion.
+ * global.css) and stops under Reduce Motion. The browser redraws animated
+ * SVG parts on the main thread every frame, so the orbits pause while the
+ * emblem is off screen.
  */
 const ORBITS = [
   { r: 118, k: 0.34, tilt: -14, period: 14, phase: 0.1, size: 19 },
@@ -22,6 +24,14 @@ const ORBITS = [
 export function EmblemPlaceholder({ className = '' }: { className?: string }) {
   const uid = useId().replace(/:/g, '');
   const id = (s: string) => `${uid}-${s}`;
+  const svg = useRef<SVGSVGElement>(null);
+  useEffect(() => {
+    const el = svg.current;
+    if (!el || !('IntersectionObserver' in window)) return;
+    const io = new IntersectionObserver(([e]) => el.toggleAttribute('data-offscreen', !e.isIntersecting));
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
 
   const half = (side: 'back' | 'front') =>
     ORBITS.map((o, i) => {
@@ -81,6 +91,7 @@ export function EmblemPlaceholder({ className = '' }: { className?: string }) {
 
   return (
     <svg
+      ref={svg}
       viewBox="-300 -300 600 600"
       className={`emblem ${className}`}
       aria-hidden="true"

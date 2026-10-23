@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { en } from '../content/en';
 import { services, serviceById, type ServiceId } from '../content/services';
 import { Button } from '../components/Button';
@@ -6,18 +6,20 @@ import { ClassroomIllustration, CLASSROOM_HOTSPOTS, toPercent } from '../compone
 import { LazyVisual } from '../components/LazyVisual';
 import { Scene, SceneTitle } from '../components/Scene';
 import { useFullLayout } from '../hooks/useFullLayout';
-import { stickyScrollY, useStickyProgress } from '../hooks/useStickyProgress';
 import { classroom } from '../lib/classroomState';
-import { activeIndex, HOTSPOT_COUNT, progressFor } from '../lib/journey';
+import { HOTSPOT_COUNT } from '../lib/journey';
 import { goToQuote } from '../lib/quoteStore';
 import { registerAnchorResolver, scrollToId } from '../lib/scroll';
+import { measured } from '../lib/timeline';
+import { stepIndex } from '../story/steps';
+import { itemFor, story } from '../story/store';
 
 /**
  * Scene 5: the classroom diorama.
  *
- * FULL: the scene is pinned over the 3D classroom. Scrolling (or a numbered
- * hotspot button, the HTML twin of each 3D hotspot) moves the camera to
- * each device in turn and the panel shows that device.
+ * FULL: the scene is pinned over the 3D classroom. Each scroll gesture (or
+ * a numbered hotspot button, the HTML twin of each 3D hotspot) moves the
+ * camera to the next device; the panel shows it once the camera arrives.
  *
  * LITE: a still illustrated classroom with five numbered buttons placed on
  * the devices; choosing one opens its panel.
@@ -28,9 +30,11 @@ export function Classroom() {
   const c = en.classroom;
   const full = useFullLayout();
   const sectionRef = useRef<HTMLElement>(null);
-  const [selected, setSelected] = useState(0);
+  const [liteSelected, setSelected] = useState(0);
   const [accent, setAccent] = useState<ServiceId>('smartclass');
-  const lock = useRef<{ i: number; until: number } | null>(null);
+  // FULL: the device the story rests on (changes when a move lands).
+  const step = story.useStore((s) => s.step);
+  const selected = full ? itemFor('classroom', step) : liteSelected;
   const spot = c.hotspots[selected];
 
   // The 3D classroom reads the accent colour from the shared state.
@@ -38,28 +42,16 @@ export function Classroom() {
     classroom.accent = serviceById(accent).color;
   }, [accent]);
 
-  const onProgress = useCallback((p: number) => {
-    const i = activeIndex(p, HOTSPOT_COUNT);
-    const l = lock.current;
-    if (l && performance.now() < l.until && i !== l.i) return;
-    lock.current = null;
-    setSelected(i);
-  }, []);
-  useStickyProgress(sectionRef, 'classroom', full, onProgress);
-
-  // FULL: #hotspot-<n> scrolls to that device's place in the pinned scene.
+  // FULL: #hotspot-<n> travels to that device's step.
   useEffect(() => {
     if (!full) return;
     return registerAnchorResolver((id) => {
       const m = /^hotspot-(\d)$/.exec(id);
-      const section = sectionRef.current;
-      if (!m || !section) return null;
+      if (!m) return null;
       const i = Number(m[1]) - 1;
       if (i < 0 || i >= HOTSPOT_COUNT) return null;
-      lock.current = { i, until: performance.now() + 2200 };
-      setSelected(i);
       return {
-        y: stickyScrollY(section, progressFor(i, HOTSPOT_COUNT)),
+        y: measured().stepY[stepIndex(`device-${i + 1}`)],
         focus: document.querySelector<HTMLElement>(`#hotspot-${i + 1} .hotspot`),
       };
     });

@@ -31,6 +31,7 @@ const fragment = /* glsl */ `
   uniform float uReveal;
   uniform float uHasRoom;
   uniform float uGlow;
+  uniform float uLit;
   varying vec2 vUv;
   float bar(float x, float c, float w) {
     float d = abs(x - c);
@@ -41,6 +42,9 @@ const fragment = /* glsl */ `
     // warm, lit classroom glass (HDR: it blooms), lighter at the top
     vec3 glass = mix(vec3(1.05, 0.62, 0.24), vec3(1.25, 0.95, 0.58), smoothstep(0.0, 1.0, vUv.y)) * uGlow;
     glass += vec3(0.16, 0.12, 0.08) * (1.0 - smoothstep(0.0, 0.22, abs(vUv.x - vUv.y * 0.6 - 0.12)));
+    // until the satellite's light reaches it, plain glass like its neighbours
+    vec3 plain = mix(vec3(0.2, 0.29, 0.4), vec3(0.43, 0.55, 0.66), vUv.y);
+    glass = mix(plain, glass, uLit);
     float grill = max(max(bar(vUv.x, 0.25, 0.01), bar(vUv.x, 0.75, 0.01)), bar(vUv.y, 0.35, 0.012));
     float frame = max(bar(vUv.x, 0.5, 0.018), bar(vUv.y, 0.68, 0.02));
     vec3 c = mix(glass, vec3(0.2, 0.22, 0.26), grill * 0.9);
@@ -126,6 +130,7 @@ export function TargetWindow({ reduced }: { reduced: boolean }) {
           uReveal: { value: 0 },
           uHasRoom: { value: 0 },
           uGlow: { value: 1 },
+          uLit: { value: 0 },
         },
         vertexShader: vertex,
         fragmentShader: fragment,
@@ -133,7 +138,7 @@ export function TargetWindow({ reduced }: { reduced: boolean }) {
       }),
     [],
   );
-  const outlineMat = useMemo(() => new THREE.MeshBasicMaterial({ color: new THREE.Color(1.6, 1.0, 0.25), fog: false }), []);
+  const outlineMat = useMemo(() => new THREE.MeshBasicMaterial({ color: new THREE.Color(1.6, 1.0, 0.25), fog: false, transparent: true }), []);
   const label = useMemo(() => labelTexture(), []);
   const labelMat = useMemo(
     () =>
@@ -232,7 +237,21 @@ export function TargetWindow({ reduced }: { reduced: boolean }) {
       kids.forEach((k, i) => (k.visible = shown[i]));
       part += 1;
       if (part <= PARTS) schedule();
-      else target.dispose();
+      else {
+        target.dispose();
+        // the full-size target the window shows the room through: allocated
+        // and drawn once now, not at the window approach
+        gl.getDrawingBufferSize(tmp.size);
+        rt.current ??= new THREE.WebGLRenderTarget(tmp.size.x, tmp.size.y, { type: THREE.HalfFloatType });
+        room.visible = true;
+        refs.roomLighting(true);
+        const before = gl.getRenderTarget();
+        gl.setRenderTarget(rt.current);
+        gl.render(scene, roomCam);
+        gl.setRenderTarget(before);
+        refs.roomLighting(false);
+        room.visible = wasVisible;
+      }
     };
     const schedule = () => {
       if (typeof w.requestIdleCallback === 'function') idle = w.requestIdleCallback(warm, { timeout: 4000 });
@@ -252,13 +271,16 @@ export function TargetWindow({ reduced }: { reduced: boolean }) {
     outlineMat.color.setRGB(1.0, 0.71, 0.18).multiplyScalar(1.35 + pulse * 0.9);
 
     const d = stage.descent;
+    const lit = stage.windowLit;
+    glassMat.uniforms.uLit.value = lit;
+    outlineMat.opacity = lit;
     // brighter from afar (a small warm bloom over the campus), softer up close
     if (group.current) {
       group.current.localToWorld(tmp.v.copy(TARGET.center));
       glassMat.uniforms.uGlow.value = THREE.MathUtils.lerp(1, 1.7, THREE.MathUtils.smoothstep(camera.position.distanceTo(tmp.v), 12, 70));
     }
     // label: shown over the campus, gone before the camera reaches the window
-    labelMat.opacity = reduced ? (stage.still === 'campus' ? 1 : 0) : THREE.MathUtils.smoothstep(d, 0.56, 0.62) * (1 - THREE.MathUtils.smoothstep(d, 0.84, 0.89));
+    labelMat.opacity = reduced ? (stage.still === 'campus' ? 1 : 0) : lit * (1 - THREE.MathUtils.smoothstep(d, 0.84, 0.89));
 
     let reveal = 0;
     if (stage.campus && !reduced && d > 0.8 && group.current) {
@@ -279,11 +301,8 @@ export function TargetWindow({ reduced }: { reduced: boolean }) {
     glassMat.uniforms.uReveal.value = reveal;
 
     if (reveal <= 0) {
+      // (the target stays allocated for the visit: no allocation mid-move)
       roomReady.current = false;
-      if (rt.current && d < 0.7) {
-        rt.current.dispose();
-        rt.current = null;
-      }
       glassMat.uniforms.uHasRoom.value = 0;
       return;
     }

@@ -165,7 +165,8 @@ export function Star({ reduced }: { reduced: boolean }) {
       </sprite>
       <Billboard>
         <mesh ref={corona} geometry={coronaGeo} position={[0, 0, -0.02]}>
-          <meshBasicMaterial color={[1.6, 0.78, 0.1]} />
+          {/* above 1.0 so it passes the bloom threshold */}
+          <meshBasicMaterial color={[2.0, 1.02, 0.14]} />
         </mesh>
       </Billboard>
       <mesh material={material}>

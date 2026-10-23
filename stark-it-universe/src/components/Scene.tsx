@@ -1,4 +1,5 @@
-import { forwardRef, type ReactNode } from 'react';
+import { forwardRef, type CSSProperties, type ReactNode } from 'react';
+import { sceneById } from '../lib/timeline';
 import { Rich } from './Placeholder';
 
 interface SceneProps {
@@ -10,17 +11,23 @@ interface SceneProps {
   children: ReactNode;
 }
 
-/** One scene of the journey: a <section> labelled by its H2. */
+/**
+ * One scene of the journey: a <section> labelled by its H2. Pinned scenes
+ * carry their scroll budget from the scene table (FULL layout height).
+ */
 export const Scene = forwardRef<HTMLElement, SceneProps>(function Scene(
   { id, theme, index, className = '', children },
   ref,
 ) {
+  const budget = sceneById(id)?.budget;
   return (
     <section
       ref={ref}
       id={id}
       data-theme={theme}
       data-index={index}
+      data-budget={budget}
+      style={budget ? ({ '--budget': budget } as CSSProperties) : undefined}
       aria-labelledby={`${id}-title`}
       className={`scene scene--${id} ${className}`}
     >

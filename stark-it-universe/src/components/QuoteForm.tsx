@@ -1,291 +1,101 @@
-import { m } from 'motion/react';
-import {
-  useEffect,
-  useRef,
-  useState,
-  type ChangeEvent,
-  type FormEvent,
-  type InputHTMLAttributes,
-  type ReactNode,
-} from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { en } from '../content/en';
 import { NOT_SURE, services } from '../content/services';
-import { useReducedMotion } from '../hooks/useReducedMotion';
+import { whatsappLink } from '../content/business';
+import { contact } from '../content/contact';
 import { quoteStore } from '../lib/quoteStore';
-import { Icon } from './Icons';
-import { Ph } from './Placeholder';
+import { track } from '../lib/analytics';
 
-type Field = 'name' | 'school' | 'mobile' | 'city' | 'service' | 'email' | 'message';
-type Values = Record<Field, string> & { whatsapp: boolean };
+type Field = 'name' | 'school' | 'mobile' | 'city' | 'service' | 'email' | 'message' | 'source';
+type Values = Record<Field, string>;
 type Errors = Partial<Record<Field, string>>;
+const EMPTY: Values = { name: '', school: '', mobile: '', city: '', service: '', email: '', message: '', source: '' };
+const REQUIRED = ['name', 'school', 'mobile', 'city', 'service'] as const;
+const OPTIONS = [...services.map((s) => s.name), 'Digital board repair', 'AMC & support', NOT_SURE];
 
-const EMPTY: Values = { name: '', school: '', mobile: '', city: '', service: '', email: '', message: '', whatsapp: false };
-const REQUIRED: Field[] = ['name', 'school', 'mobile', 'city', 'service'];
-const ORDER: Field[] = ['name', 'school', 'mobile', 'city', 'service', 'email', 'message'];
-
-/** Indian mobile: 10 digits starting 6-9, optional +91 / 91 / 0, spaces allowed. */
 export function isValidMobile(raw: string) {
-  const digits = raw.replace(/[\s\-().]/g, '');
-  return /^(?:\+?91|0)?[6-9]\d{9}$/.test(digits);
+  return /^(?:\+?91|0)?[6-9]\d{9}$/.test(raw.replace(/[\s\-().]/g, ''));
 }
-
 function validate(v: Values): Errors {
-  const e = en.quote.errors;
   const errors: Errors = {};
-  if (!v.name.trim()) errors.name = e.name;
-  if (!v.school.trim()) errors.school = e.school;
-  if (!isValidMobile(v.mobile)) errors.mobile = e.mobile;
-  if (!v.city.trim()) errors.city = e.city;
-  if (!v.service) errors.service = e.service;
-  if (v.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.email.trim())) errors.email = e.email;
+  for (const f of REQUIRED) if (!v[f].trim()) errors[f] = en.quote.errors[f];
+  if (v.mobile && !isValidMobile(v.mobile)) errors.mobile = en.quote.errors.mobile;
+  if (v.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.email)) errors.email = en.quote.errors.email;
   return errors;
 }
 
-/**
- * The quote form. Front-end only: on a valid submit it shows "Sending…"
- * inside the button, then a success state. Nothing is sent anywhere.
- * Errors appear as text next to each field (aria-describedby), typed values
- * are never cleared, and focus moves to the first field that needs fixing.
- */
+/** Prepares a local draft. Only the visitor can send it from WhatsApp. */
 export function QuoteForm() {
   const q = en.quote;
-  const reduced = useReducedMotion();
-  const [values, setValues] = useState<Values>(EMPTY);
+  const [values, setValues] = useState(EMPTY);
   const [errors, setErrors] = useState<Errors>({});
   const [attempted, setAttempted] = useState(false);
-  const [status, setStatus] = useState<'idle' | 'sending' | 'done'>('idle');
-  const [summary, setSummary] = useState('');
-  const formRef = useRef<HTMLFormElement>(null);
-  const successRef = useRef<HTMLHeadingElement>(null);
+  const [draft, setDraft] = useState('');
+  const [ready, setReady] = useState(false);
+  const form = useRef<HTMLFormElement>(null);
+  const result = useRef<HTMLDivElement>(null);
   const lastPrefill = useRef<string | null>(null);
   const prefill = quoteStore.useStore();
 
-  // Apply requests from service cards, hotspots and the configurator.
+  useEffect(() => {
+    setReady(true);
+    const params = new URLSearchParams(location.search);
+    const requested = params.get('service');
+    const service = OPTIONS.find((s) => s.toLowerCase() === requested?.toLowerCase()) || '';
+    const message = params.get('request') === 'visit' ? 'Please arrange a site visit. Campus address: \nPreferred dates: ' : '';
+    setValues((v) => ({ ...v, service: service || v.service, message: message || v.message }));
+  }, []);
+
   useEffect(() => {
     if (!prefill.stamp) return;
     setValues((v) => {
-      const next = { ...v };
-      if (prefill.service) next.service = prefill.service;
-      if (prefill.message) {
-        // Replace an earlier pre-fill, but never throw away the visitor's own words.
-        const own = v.message.trim() && v.message !== lastPrefill.current;
-        next.message = own ? `${v.message.trim()}\n\n${prefill.message}` : prefill.message;
-        lastPrefill.current = next.message;
-      }
-      if (attempted) setErrors(validate(next));
-      return next;
+      const own = v.message.trim() && v.message !== lastPrefill.current;
+      const message = prefill.message ? own ? `${v.message.trim()}\n\n${prefill.message}` : prefill.message : v.message;
+      lastPrefill.current = message;
+      return { ...v, service: prefill.service || v.service, message };
     });
-    if (status === 'done') setStatus('idle');
-    // Focus the first required field still empty, once the form is visible.
-    window.setTimeout(() => {
-      const form = formRef.current;
-      if (!form) return;
-      const firstEmpty = REQUIRED.map((f) => form.elements.namedItem(f) as HTMLInputElement | null).find(
-        (el) => el && !el.value.trim(),
-      );
-      (firstEmpty ?? (form.elements.namedItem('message') as HTMLElement | null))?.focus({ preventScroll: true });
+    setDraft('');
+    const timer = window.setTimeout(() => {
+      const first = REQUIRED.map((f) => form.current?.elements.namedItem(f) as HTMLInputElement | null).find((el) => el && !el.value.trim());
+      first?.focus({ preventScroll: true });
     }, 50);
-    // Runs only when a new pre-fill request arrives.
+    return () => clearTimeout(timer);
   }, [prefill.stamp]);
 
-  useEffect(() => {
-    if (status === 'done') successRef.current?.focus();
-  }, [status]);
-
-  const onChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    const { name, value, type } = e.target;
-    const val = type === 'checkbox' ? (e.target as HTMLInputElement).checked : value;
-    setValues((v) => {
-      const next = { ...v, [name]: val } as Values;
-      if (attempted) setErrors(validate(next));
-      return next;
-    });
+  const change = (field: Field, value: string) => {
+    const next = { ...values, [field]: value };
+    setValues(next);
+    setDraft('');
+    if (attempted) setErrors(validate(next));
   };
-
-  const onSubmit = (e: FormEvent) => {
-    e.preventDefault();
-    if (status === 'sending') return;
+  const submit = (event: FormEvent) => {
+    event.preventDefault();
     const found = validate(values);
     setErrors(found);
     setAttempted(true);
-    const bad = ORDER.filter((f) => found[f]);
-    if (bad.length) {
-      setSummary(q.errors.summary(bad.length));
-      (formRef.current?.elements.namedItem(bad[0]) as HTMLElement | null)?.focus();
-      return;
-    }
-    setSummary('');
-    setStatus('sending');
-    window.setTimeout(() => setStatus('done'), 1400);
+    const first = (Object.keys(found) as Field[])[0];
+    if (first) { (form.current?.elements.namedItem(first) as HTMLElement)?.focus(); return; }
+    const message = ['School enquiry for Stark IT Universe', `Name: ${values.name.trim()}`, `School: ${values.school.trim()}`, `Mobile: ${values.mobile.trim()}`, `City: ${values.city.trim()}`, `Service: ${values.service}`, values.email && `Email: ${values.email.trim()}`, values.source && `Heard about SIU: ${values.source}`, values.message && `Requirement: ${values.message.trim()}`].filter(Boolean).join('\n');
+    setDraft(message);
+    track('quote_draft_prepared', { service: values.service, source: values.source || 'not specified' });
+    window.setTimeout(() => result.current?.focus(), 0);
   };
-
-  if (status === 'done') {
-    return (
-      <div className="quote-success" role="status">
-        <div className="quote-success__planets" aria-hidden="true">
-          {services.map((s, i) => (
-            <m.span
-              key={s.id}
-              className="quote-success__planet"
-              style={{ background: s.color }}
-              initial={reduced ? { opacity: 0 } : { opacity: 0, x: (i - 2) * -40, y: [-60, 40, -80, 30, -50][i], scale: 0.4 }}
-              animate={{ opacity: 1, x: 0, y: 0, scale: 1 }}
-              transition={reduced ? { duration: 0.3 } : { type: 'spring', stiffness: 160, damping: 14, delay: i * 0.08 }}
-            />
-          ))}
-        </div>
-        <h3 ref={successRef} tabIndex={-1} className="quote-success__title">
-          {q.successTitle}
-        </h3>
-        <p className="quote-success__text">{q.success}</p>
-      </div>
-    );
-  }
-
-  const describedBy = (f: Field, extra?: string) =>
-    [extra, errors[f] ? `qf-${f}-error` : null].filter(Boolean).join(' ') || undefined;
-
-  const field = (f: Field, label: string, control: ReactNode, opts: { required?: boolean; hint?: string } = {}) => (
-    <div className={`qf-field ${errors[f] ? 'has-error' : ''}`}>
-      <label htmlFor={`qf-${f}`} className="field-label">
-        {label}
-        {opts.required ? (
-          <span className="qf-req" aria-hidden="true">
-            *
-          </span>
-        ) : (
-          <span className="qf-opt"> {q.fields.optional}</span>
-        )}
-      </label>
-      {opts.hint && (
-        <p id={`qf-${f}-hint`} className="field-hint">
-          {opts.hint}
-        </p>
-      )}
-      {control}
-      {errors[f] && (
-        <p id={`qf-${f}-error`} className="qf-error">
-          <Icon name="close" size={16} strokeWidth={2.4} />
-          {errors[f]}
-        </p>
-      )}
+  const label = (field: Field, text: string, required = false) => <label className="field-label" htmlFor={`qf-${field}`}>{text}{required ? <span className="qf-req" aria-hidden="true">*</span> : <span className="qf-opt"> (optional)</span>}</label>;
+  const error = (field: Field) => errors[field] ? <p className="qf-error" id={`qf-${field}-error`}>{errors[field]}</p> : null;
+  const fields = [['name', q.fields.name, 'text', 'name'], ['school', q.fields.school, 'text', 'organization'], ['mobile', q.fields.mobile, 'tel', 'tel'], ['city', q.fields.city, 'text', 'address-level2']] as const;
+  return <form ref={form} className="quote-form" noValidate onSubmit={submit} aria-labelledby="quote-title">
+    <p className="qf-required-note">{q.required} This form prepares a WhatsApp draft; you review and send it.</p>
+    <div className="qf-summary" aria-live="assertive">{Object.keys(errors).length > 0 && <p>{q.errors.summary(Object.keys(errors).length)}</p>}</div>
+    <div className="qf-grid">
+      {fields.map(([key, text, type, autoComplete]) => <div className={`qf-field ${errors[key] ? 'has-error' : ''}`} key={key}>{label(key, text, true)}{key === 'mobile' && <p className="field-hint" id="qf-mobile-hint">{q.fields.mobileHint}</p>}<input id={`qf-${key}`} name={key} type={type} autoComplete={autoComplete} required maxLength={key === 'mobile' ? 25 : 160} value={values[key]} onChange={(e) => change(key, e.target.value)} className="qf-input" aria-invalid={!!errors[key] || undefined} aria-describedby={[key === 'mobile' ? 'qf-mobile-hint' : '', errors[key] ? `qf-${key}-error` : ''].filter(Boolean).join(' ') || undefined} />{error(key)}</div>)}
+      <div className="qf-field qf-span">{label('service', q.fields.service, true)}<select className="qf-input qf-select" id="qf-service" name="service" required value={values.service} onChange={(e) => change('service', e.target.value)} aria-invalid={!!errors.service || undefined} aria-describedby={errors.service ? 'qf-service-error' : undefined}><option value="">{q.fields.serviceEmpty}</option>{OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}</select>{error('service')}</div>
+      <div className="qf-field qf-span">{label('email', q.fields.email)}<input className="qf-input" id="qf-email" name="email" type="email" autoComplete="email" maxLength={254} value={values.email} onChange={(e) => change('email', e.target.value)} aria-invalid={!!errors.email || undefined} aria-describedby={errors.email ? 'qf-email-error' : undefined} />{error('email')}</div>
+      <div className="qf-field qf-span">{label('source', 'How did you hear about us?')}<select id="qf-source" name="source" value={values.source} onChange={(e) => change('source', e.target.value)} className="qf-input qf-select"><option value="">Choose if you would like</option>{['Google Search', 'Google Maps', 'ChatGPT', 'Google AI / Gemini', 'Other AI assistant', 'WhatsApp', 'School referral', 'Other'].map((s) => <option key={s}>{s}</option>)}</select></div>
+      <div className="qf-field qf-span">{label('message', q.fields.message)}<textarea id="qf-message" name="message" rows={5} maxLength={2500} value={values.message} onChange={(e) => change('message', e.target.value)} className="qf-input qf-textarea" /></div>
     </div>
-  );
-
-  const input = (f: Field, props: InputHTMLAttributes<HTMLInputElement>, hintId?: string) => (
-    <input
-      id={`qf-${f}`}
-      name={f}
-      value={values[f]}
-      onChange={onChange}
-      aria-invalid={errors[f] ? true : undefined}
-      aria-describedby={describedBy(f, hintId)}
-      className="qf-input"
-      {...props}
-    />
-  );
-
-  return (
-    <form ref={formRef} className="quote-form" noValidate onSubmit={onSubmit} aria-labelledby="quote-title">
-      <p className="qf-required-note">{q.required}</p>
-      <div className="qf-summary" aria-live="assertive">
-        {summary && (
-          <p>
-            <Icon name="close" size={16} strokeWidth={2.4} />
-            {summary}
-          </p>
-        )}
-      </div>
-
-      <div className="qf-grid">
-        {field('name', q.fields.name, input('name', { type: 'text', autoComplete: 'name', required: true }), { required: true })}
-        {field(
-          'school',
-          q.fields.school,
-          input('school', { type: 'text', autoComplete: 'organization', required: true }),
-          { required: true },
-        )}
-        {field(
-          'mobile',
-          q.fields.mobile,
-          input('mobile', { type: 'tel', autoComplete: 'tel', inputMode: 'tel', required: true }, 'qf-mobile-hint'),
-          { required: true, hint: q.fields.mobileHint },
-        )}
-        {field(
-          'city',
-          q.fields.city,
-          input('city', { type: 'text', autoComplete: 'address-level2', required: true }),
-          { required: true },
-        )}
-        <div className="qf-span">
-          {field(
-            'service',
-            q.fields.service,
-            <select
-              id="qf-service"
-              name="service"
-              value={values.service}
-              onChange={onChange}
-              required
-              aria-invalid={errors.service ? true : undefined}
-              aria-describedby={describedBy('service')}
-              className="qf-input qf-select"
-            >
-              <option value="">{q.fields.serviceEmpty}</option>
-              {services.map((s) => (
-                <option key={s.id} value={s.name}>
-                  {s.name}
-                </option>
-              ))}
-              <option value={NOT_SURE}>{NOT_SURE}</option>
-            </select>,
-            { required: true },
-          )}
-        </div>
-        <div className="qf-span">
-          {field('email', q.fields.email, input('email', { type: 'email', autoComplete: 'email', inputMode: 'email' }))}
-        </div>
-        <div className="qf-span">
-          {field(
-            'message',
-            q.fields.message,
-            <textarea
-              id="qf-message"
-              name="message"
-              rows={5}
-              value={values.message}
-              onChange={onChange}
-              className="qf-input qf-textarea"
-            />,
-          )}
-        </div>
-      </div>
-
-      <label className="qf-check">
-        <input type="checkbox" name="whatsapp" checked={values.whatsapp} onChange={onChange} />
-        <span className="qf-check__box" aria-hidden="true">
-          <Icon name="check" size={16} strokeWidth={2.6} />
-        </span>
-        <span>{q.fields.whatsapp}</span>
-      </label>
-
-      <button type="submit" className="btn btn--primary btn--lg qf-submit" aria-disabled={status === 'sending' || undefined}>
-        {status === 'sending' ? (
-          <>
-            <span className="spinner" aria-hidden="true" />
-            <span className="btn__label">{q.sending}</span>
-          </>
-        ) : (
-          <span className="btn__label">{q.submit}</span>
-        )}
-      </button>
-      <p className="sr-only" aria-live="polite">
-        {status === 'sending' ? q.sending : ''}
-      </p>
-
-      <p className="qf-privacy">
-        {q.privacy} <Ph>{q.privacyLink}</Ph>
-      </p>
-    </form>
-  );
+    <button type="submit" disabled={!ready} className="btn btn--primary btn--lg qf-submit"><span className="btn__label">Prepare WhatsApp enquiry</span></button>
+    {draft && <div ref={result} className="qf-handoff" tabIndex={-1} role="status"><strong>Your draft is ready.</strong><p>SIU receives it after you send it in WhatsApp.</p><a className="btn btn--primary btn--md" href={whatsappLink(draft)} target="_blank" rel="noopener noreferrer">Open draft in WhatsApp</a><p>Prefer email? <a href={`${contact.emailHref}?subject=${encodeURIComponent('School enquiry for SIU')}&body=${encodeURIComponent(draft)}`}>Open an email draft</a></p></div>}
+    <p className="qf-privacy">Details stay in this browser until you choose to open a draft. <a href="/privacy/">Privacy notice</a></p>
+    <noscript><p>To request a quote, <a href={contact.phoneHref}>call {contact.phoneDisplay}</a> or <a href={contact.emailHref}>email SIU</a>.</p></noscript>
+  </form>;
 }

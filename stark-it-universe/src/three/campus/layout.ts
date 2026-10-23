@@ -2,13 +2,12 @@ import * as THREE from 'three';
 
 /**
  * Plan of the campus diorama, in campus units (about one metre), relative
- * to CAMPUS (stage.ts). y is up, the base top is y = 0, +z is the front
+ * to CAMPUS (stage.ts). y is up, the ground is y = 0, +z is the front
  * (main gate), +x is the right-hand side. A typical North Indian private
  * school: a three-storey U-shaped block with open verandas facing the
  * assembly ground, an entrance tower, a sports court, a bus bay and a
  * boundary wall with railings and an arched main gate.
  */
-export const BASE = { x0: -38, x1: 38, z0: -30, z1: 30, r: 6 };
 /** Boundary wall centre lines. */
 export const WALL = { x: 36, z: 28, gate: 3.5 };
 

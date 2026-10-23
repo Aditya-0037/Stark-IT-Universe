@@ -1,12 +1,14 @@
 import { StrictMode } from 'react';
 import { renderToString } from 'react-dom/server';
-import { App } from './App';
+import { Root } from './Root';
+export { metadata, pagePaths, renderHead } from './lib/seo';
+export { business } from './content/business';
 
 /** Used at build time to pre-render the page into dist/index.html. */
-export function render(): string {
+export function render(path = '/'): string {
   return renderToString(
     <StrictMode>
-      <App />
+      <Root path={path} />
     </StrictMode>,
   );
 }

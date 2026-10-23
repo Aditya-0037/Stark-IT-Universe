@@ -1,27 +1,57 @@
-import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { Bloom, EffectComposer, N8AO, ToneMapping, Vignette } from '@react-three/postprocessing';
-import { ToneMappingMode, type EffectComposer as PPComposer, type Pass, type VignetteEffect } from 'postprocessing';
-import { Component, lazy, Suspense, useEffect, useReducer, useRef, useState, type ReactNode, type RefObject } from 'react';
-import * as THREE from 'three';
-import { reportLowFrameRate, reportWebGLFailure, tierStore } from '../hooks/useDeviceTier';
-import { useReducedMotion } from '../hooks/useReducedMotion';
-import { introStore } from '../lib/introState';
-import { readStore, writeStore } from '../lib/storage';
-import { trackPointer } from '../lib/pointer';
-import { setWorldReady, worldStore } from '../lib/worldState';
-import { Atmosphere } from './Atmosphere';
-import { CameraRig } from './CameraRig';
-import { ClassroomModel } from './ClassroomModel';
-import { Director } from './Director';
-import { Starfield } from './Particles';
-import { RouteScene } from './RouteScene';
-import { startScrollDriver } from './scrollDriver';
-import { SolarSystem } from './SolarSystem';
-import { compiling, crossfade, smooth, stage } from './stage';
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
+import {
+  Bloom,
+  EffectComposer,
+  N8AO,
+  ToneMapping,
+  Vignette,
+} from "@react-three/postprocessing";
+import {
+  ToneMappingMode,
+  type EffectComposer as PPComposer,
+  type Pass,
+  type VignetteEffect,
+} from "postprocessing";
+import {
+  Component,
+  lazy,
+  Suspense,
+  useEffect,
+  useReducer,
+  useRef,
+  useState,
+  type ReactNode,
+  type RefObject,
+} from "react";
+import * as THREE from "three";
+import {
+  reportLowFrameRate,
+  reportWebGLFailure,
+  tierStore,
+} from "../hooks/useDeviceTier";
+import { useReducedMotion } from "../hooks/useReducedMotion";
+import { introStore } from "../lib/introState";
+import { readStore, writeStore } from "../lib/storage";
+import { trackPointer } from "../lib/pointer";
+import gsap from "gsap";
+import { scrollPosition } from "../lib/scroll";
+import { writeJourney } from "../lib/timeline";
+import { setWorldReady, worldOut, worldStore } from "../lib/worldState";
+import { RENDER } from "../art/styleBible";
+import { Atmosphere } from "./Atmosphere";
+import { CameraRig, poseRoomOverview } from "./CameraRig";
+import { ClassroomModel } from "./ClassroomModel";
+import { Director } from "./Director";
+import { Starfield } from "./Particles";
+import { RouteScene } from "./RouteScene";
+import { startScrollDriver } from "./scrollDriver";
+import { SolarSystem } from "./SolarSystem";
+import { Park, onIdle } from "./Park";
+import { CAMPUS, compiling, crossfade, refs, smooth, stage } from "./stage";
 
 // The campus (school, trees, clouds) is its own chunk, loaded while the
 // orbit route is on screen.
-const CampusScene = lazy(() => import('./campus/CampusScene'));
+const CampusScene = lazy(() => import("./campus/CampusScene"));
 
 /**
  * The 3D layer: one fixed canvas behind the HTML (aria-hidden), loaded with
@@ -36,12 +66,16 @@ const CampusScene = lazy(() => import('./campus/CampusScene'));
  */
 /** Timing marks for `?debug` (load, compile and first-frame phases). */
 export const mark = (name: string) => {
-  if (typeof location === 'undefined' || !location.search.includes('debug')) return;
+  if (typeof location === "undefined" || !location.search.includes("debug"))
+    return;
   const w = window as unknown as { __siuT?: Record<string, number> };
   (w.__siuT ??= {})[name] = Math.round(performance.now());
 };
-mark('chunk-evaluated');
-const DEBUG_FLAGS = typeof location !== 'undefined' && location.search.includes('debug') ? location.search : '';
+mark("chunk-evaluated");
+const DEBUG_FLAGS =
+  typeof location !== "undefined" && location.search.includes("debug")
+    ? location.search
+    : "";
 
 // The post-processing composer, so its shaders can be precompiled too.
 let composerInstance: PPComposer | null = null;
@@ -64,29 +98,35 @@ export function World() {
   const introPlaying = introStore.useStore((s) => s.playing);
   const ready = worldStore.useStore((s) => s.ready);
   const regions = useStagedRegions(ready);
+  const hiddenOut = worldOut.useStore((s) => s.hidden);
   // Precompile runs again whenever a region has been added to the scene.
   const [compileKey, recompile] = useReducer((k: number) => k + 1, 0);
   useEffect(() => {
     if (regions.room) recompile();
   }, [regions.room]);
-  const [tabVisible, setTabVisible] = useState(() => document.visibilityState === 'visible');
+  const [tabVisible, setTabVisible] = useState(
+    () => document.visibilityState === "visible",
+  );
 
   useEffect(() => trackPointer(), []);
   useEffect(() => startScrollDriver({ smooth: !reduced }), [reduced]);
 
   // Pause when the 3D zone is scrolled away (sections there are opaque).
   useEffect(() => {
-    const zone = document.querySelector('[data-world-zone]');
-    if (!zone || !('IntersectionObserver' in window)) return;
-    const io = new IntersectionObserver(([e]) => setOnScreen(e.isIntersecting), { rootMargin: '0px 0px 0px 0px' });
+    const zone = document.querySelector("[data-world-zone]");
+    if (!zone || !("IntersectionObserver" in window)) return;
+    const io = new IntersectionObserver(
+      ([e]) => setOnScreen(e.isIntersecting),
+      { rootMargin: "0px 0px 0px 0px" },
+    );
     io.observe(zone);
     return () => io.disconnect();
   }, []);
 
   useEffect(() => {
-    const onVis = () => setTabVisible(document.visibilityState === 'visible');
-    document.addEventListener('visibilitychange', onVis);
-    return () => document.removeEventListener('visibilitychange', onVis);
+    const onVis = () => setTabVisible(document.visibilityState === "visible");
+    document.addEventListener("visibilitychange", onVis);
+    return () => document.removeEventListener("visibilitychange", onVis);
   }, []);
 
   useEffect(() => {
@@ -97,52 +137,80 @@ export function World() {
     };
   }, []);
 
-  const running = onScreen && tabVisible && !introPlaying;
+  const running = onScreen && tabVisible && !introPlaying && !hiddenOut;
 
   return (
     <div className="world" aria-hidden="true" ref={fadeRef}>
-      <WorldErrorBoundary>
-        <Canvas
-          dpr={[1, 1.75]}
-          shadows={!DEBUG_FLAGS.includes('noshadow')}
-          gl={{ antialias: false, powerPreference: 'high-performance', stencil: false, alpha: false }}
-          camera={{ fov: 38, near: 0.1, far: 600, position: [0, 1.7, 17.5] }}
-          frameloop={running && compiled ? 'always' : 'never'}
-          eventSource={document.getElementById('root')!}
-          eventPrefix="client"
-          onCreated={({ gl }) => {
-            mark('canvas-created');
-            gl.domElement.addEventListener('webglcontextlost', (e) => {
-              e.preventDefault();
-              // Checked after the current commit, so our own unmount is ignored.
-              window.setTimeout(() => mounted && reportWebGLFailure(), 0);
-            });
-          }}
-        >
-          <Director reduced={reduced} />
-          <Atmosphere />
-          <Suspense fallback={null}>
-            <Starfield reduced={reduced} />
-            <SpaceOnly>
-              <SolarSystem reduced={reduced} />
-              <RouteScene reduced={reduced} />
-            </SpaceOnly>
-            {regions.room && <ClassroomModel />}
-            <CameraRig reduced={reduced} fadeRef={fadeRef} />
-            <ReadySignal />
-            {!introPlaying && <Precompile key={compileKey} onDone={() => setCompiled(true)} />}
-          </Suspense>
-          {regions.campus && (
+      <div className="world__layer">
+        <WorldErrorBoundary>
+          <Canvas
+            dpr={[1, PHONE ? 1.5 : 1.75]}
+            shadows={!DEBUG_FLAGS.includes("noshadow")}
+            gl={{
+              antialias: false,
+              powerPreference: "high-performance",
+              stencil: false,
+              alpha: false,
+              toneMapping: RENDER.toneMapping,
+            }}
+            camera={{ fov: 38, near: 0.3, far: 900, position: [0, 1.7, 17.5] }}
+            frameloop="never"
+            eventSource={document.getElementById("root")!}
+            eventPrefix="client"
+            onCreated={({ gl }) => {
+              mark("canvas-created");
+              // Checking each shader's link status blocks until the GPU has
+              // compiled it: only worth it while debugging.
+              if (!DEBUG_FLAGS) gl.debug.checkShaderErrors = false;
+              gl.domElement.addEventListener("webglcontextlost", (e) => {
+                e.preventDefault();
+                // Checked after the current commit, so our own unmount is ignored.
+                window.setTimeout(() => mounted && reportWebGLFailure(), 0);
+              });
+            }}
+          >
+            <TickerLoop running={running && compiled} />
+            <Playhead />
+            <Director reduced={reduced} />
+            <Atmosphere />
             <Suspense fallback={null}>
-              <CampusScene reduced={reduced} onBuilt={recompile} />
+              <Park name="space" warmCamera={spaceWarmCamera}>
+                <Starfield reduced={reduced} />
+                <SpaceOnly>
+                  <SolarSystem reduced={reduced} />
+                  <RouteScene reduced={reduced} />
+                </SpaceOnly>
+              </Park>
+              {regions.room && (
+                <Park
+                  name="room"
+                  warmCamera={roomWarmCamera}
+                  beforeWarm={roomBeforeWarm}
+                >
+                  <ClassroomModel />
+                </Park>
+              )}
+              <CameraRig reduced={reduced} fadeRef={fadeRef} />
+              <ReadySignal />
+              {!introPlaying && (
+                <Precompile key={compileKey} onDone={() => setCompiled(true)} />
+              )}
             </Suspense>
-          )}
-          <Snapshot canvasRef={stillRef} />
-          <FrameRateGuard running={running} />
-          {DEBUG_FLAGS && <FrameStats />}
-          {!DEBUG_FLAGS.includes('nofx') && <Effects />}
-        </Canvas>
-      </WorldErrorBoundary>
+            {regions.campus && (
+              <Suspense fallback={null}>
+                {/* the campus warms itself once built (CampusScene) */}
+                <Park name="campus" warmKey={-1} warmCamera={campusWarmCamera}>
+                  <CampusScene reduced={reduced} onBuilt={recompile} />
+                </Park>
+              </Suspense>
+            )}
+            <Snapshot canvasRef={stillRef} />
+            <FrameRateGuard running={running} />
+            {DEBUG_FLAGS && <FrameStats />}
+            {!DEBUG_FLAGS.includes("nofx") && <Effects />}
+          </Canvas>
+        </WorldErrorBoundary>
+      </div>
       <canvas ref={stillRef} className="world__still" />
     </div>
   );
@@ -159,8 +227,13 @@ function SpaceOnly({ children }: { children: ReactNode }) {
   return <group ref={group}>{children}</group>;
 }
 
+/** Phones render at most 1.5 device pixels per CSS pixel (performance budget). */
+const PHONE =
+  typeof matchMedia !== "undefined" &&
+  matchMedia("(pointer: coarse) and (max-width: 900px)").matches;
+
 const AO_INTENSITY = 1.6;
-const AO_OFF_KEY = 'siu-no-ao';
+const AO_OFF_KEY = "siu-no-ao";
 interface AoConfig {
   transparencyAware: boolean;
   denoiseIterations: number;
@@ -187,13 +260,16 @@ function Effects() {
       pass.configuration.denoiseIterations = 1;
     }
   }, []);
-  const aoPass = () => ao.current as (Pass & { autoDetectTransparency: boolean; configuration: AoConfig }) | null;
+  const aoPass = () =>
+    ao.current as
+      | (Pass & { autoDetectTransparency: boolean; configuration: AoConfig })
+      | null;
   // AO is the first thing to go on a slow GPU: if the campus view runs
   // under 55 fps with it for two seconds, it fades out for the session.
   const warm = useRef(3);
   const budget = useRef(
     (() => {
-      const off = readStore('session', AO_OFF_KEY) === '1';
+      const off = readStore("session", AO_OFF_KEY) === "1";
       return { time: 0, frames: 0, slow: 0, off, fade: off ? 0 : 1 };
     })(),
   );
@@ -203,7 +279,10 @@ function Effects() {
     if (!pass) return;
     const b = budget.current;
     // AO on the campus only; it fades out as the facade fills the view
-    let k = stage.campus && !stage.room && !DEBUG_FLAGS.includes('noao') ? 1 - smooth(0.84, 0.9, stage.descent) : 0;
+    let k =
+      stage.campus && !stage.room && !DEBUG_FLAGS.includes("noao")
+        ? 1 - smooth(0.84, 0.9, stage.descent)
+        : 0;
     if (k > 0.01 && !b.off) {
       b.time += Math.min(dt, 0.25);
       b.frames += 1;
@@ -213,7 +292,7 @@ function Effects() {
         b.frames = 0;
         if (b.slow >= 2) {
           b.off = true;
-          writeStore('session', AO_OFF_KEY, '1');
+          writeStore("session", AO_OFF_KEY, "1");
         }
       }
     }
@@ -228,18 +307,29 @@ function Effects() {
       k = 0.0005 / AO_INTENSITY;
     }
     const intensity = AO_INTENSITY * k;
-    if (Math.abs(pass.configuration.intensity - intensity) > 0.02) pass.configuration.intensity = intensity;
+    if (Math.abs(pass.configuration.intensity - intensity) > 0.02)
+      pass.configuration.intensity = intensity;
   });
   return (
     <EffectComposer
       multisampling={4}
       ref={(c) => {
         composerInstance = c as unknown as PPComposer | null;
-        if (DEBUG_FLAGS) (window as unknown as { __siuComposer: unknown }).__siuComposer = c;
+        if (DEBUG_FLAGS)
+          (window as unknown as { __siuComposer: unknown }).__siuComposer = c;
       }}
     >
-      <N8AO ref={ao as never} halfRes quality="performance" aoRadius={2.2} distanceFalloff={0.8} intensity={AO_INTENSITY} color="#1B2433" />
-      <Bloom mipmapBlur intensity={1.05} luminanceThreshold={0.95} luminanceSmoothing={0.12} radius={0.72} />
+      <N8AO
+        ref={ao as never}
+        halfRes
+        quality="performance"
+        aoRadius={2.2}
+        distanceFalloff={0.8}
+        intensity={AO_INTENSITY}
+        color="#1B2433"
+      />
+      {/* selective glow: only colours above 1.0 (style bible) */}
+      <Bloom mipmapBlur {...RENDER.bloom} />
       <ToneMapping mode={ToneMappingMode.NEUTRAL} />
       {/* the wrapper types its ref as the class; it is the effect instance */}
       <Vignette ref={vignette as never} offset={0.28} darkness={0.5} />
@@ -248,50 +338,75 @@ function Effects() {
 }
 
 /**
- * The hero only needs the star system, so the classroom is built
- * afterwards, in idle time (smaller main-thread tasks, so clicks right
- * after load stay responsive). The campus chunk loads once the orbit route
- * comes near the screen. Both load at once if the visitor jumps further
- * down the page.
+ * Building the regions in JavaScript: the classroom in idle time after the
+ * first frame (small main-thread tasks, so clicks right after load stay
+ * responsive), then the campus chunk. Everything is built, compiled and
+ * warmed while the hero is on screen, before the story's first move (which
+ * waits for it), and stays mounted for the whole visit.
  */
 function useStagedRegions(ready: boolean) {
   const [room, setRoom] = useState(false);
   const [campus, setCampus] = useState(false);
   useEffect(() => {
     if (!ready || room) return;
-    // Safari has no requestIdleCallback: fall back to a short timeout.
-    const w = window as Window & typeof globalThis;
-    if (typeof w.requestIdleCallback === 'function') {
-      const id = w.requestIdleCallback(() => setRoom(true), { timeout: 3000 });
-      return () => w.cancelIdleCallback(id);
-    }
-    const id = w.setTimeout(() => setRoom(true), 300);
-    return () => w.clearTimeout(id);
+    return onIdle(() => setRoom(true));
   }, [ready, room]);
   useEffect(() => {
-    if (!('IntersectionObserver' in window)) {
-      setCampus(true);
-      setRoom(true);
-      return;
-    }
-    const watch = (id: string, margin: string, then: () => void) => {
-      const el = document.getElementById(id);
-      if (!el) return () => {};
-      const io = new IntersectionObserver(([e]) => e.isIntersecting && then(), { rootMargin: margin });
-      io.observe(el);
-      return () => io.disconnect();
-    };
-    const stopRoute = watch('route', '100% 0px', () => setCampus(true));
-    const stopDescent = watch('descent', '250% 0px', () => {
-      setCampus(true);
-      setRoom(true);
-    });
-    return () => {
-      stopRoute();
-      stopDescent();
-    };
-  }, []);
+    if (!room || campus) return;
+    return onIdle(() => setCampus(true));
+  }, [room, campus]);
   return { room, campus };
+}
+
+/** Offscreen-draw cameras that see each whole region (Park). */
+const spaceWarmCamera = () => {
+  const c = new THREE.PerspectiveCamera(80, 1.6, 0.1, 600);
+  c.position.set(0, 26, 34);
+  c.lookAt(0, 0, 0);
+  c.updateMatrixWorld();
+  return c;
+};
+const campusWarmCamera = () => {
+  const c = new THREE.PerspectiveCamera(70, 1.6, 0.3, 900);
+  c.position.set(84, 46, 100).add(CAMPUS);
+  c.lookAt(CAMPUS);
+  c.updateMatrixWorld();
+  return c;
+};
+const roomWarmCamera = () => {
+  const c = new THREE.PerspectiveCamera(30, 1.6, 0.1, 600);
+  poseRoomOverview(c, 1600, 1000);
+  c.layers.enableAll();
+  return c;
+};
+const roomBeforeWarm = () => {
+  if (refs.roomSun) refs.roomSun.shadow.needsUpdate = true;
+};
+
+/**
+ * Every frame the journey values are computed from the scroll position
+ * exactly (src/lib/timeline.ts): Lenis is the only smoothing layer, and in
+ * the story Lenis plays each step's move at its fixed speed.
+ */
+function Playhead() {
+  useFrame(() => writeJourney(scrollPosition()), -10);
+  return null;
+}
+
+/**
+ * One animation loop: the canvas renders from GSAP's ticker, after Lenis
+ * has moved the scroll position in the same tick (no separate
+ * requestAnimationFrame loop for React Three Fiber).
+ */
+function TickerLoop({ running }: { running: boolean }) {
+  const advance = useThree((s) => s.advance);
+  useEffect(() => {
+    if (!running) return;
+    const frame = () => advance(performance.now());
+    gsap.ticker.add(frame);
+    return () => gsap.ticker.remove(frame);
+  }, [running, advance]);
+  return null;
 }
 
 /**
@@ -306,7 +421,7 @@ function Snapshot({ canvasRef }: { canvasRef: RefObject<HTMLCanvasElement> }) {
     if (!crossfade.request) return;
     crossfade.request = false;
     const out = canvasRef.current;
-    const ctx = out?.getContext('2d');
+    const ctx = out?.getContext("2d");
     if (out && ctx) {
       const src = gl.domElement;
       if (out.width !== src.width || out.height !== src.height) {
@@ -314,16 +429,18 @@ function Snapshot({ canvasRef }: { canvasRef: RefObject<HTMLCanvasElement> }) {
         out.height = src.height;
       }
       ctx.drawImage(src, 0, 0);
-      out.style.transition = 'none';
-      out.style.opacity = '1';
+      out.style.transition = "none";
+      out.style.opacity = "1";
+      const ms = crossfade.fadeMs;
       requestAnimationFrame(() =>
         requestAnimationFrame(() => {
-          out.style.transition = 'opacity 400ms linear';
-          out.style.opacity = '0';
+          out.style.transition = `opacity ${ms}ms linear`;
+          out.style.opacity = "0";
         }),
       );
     }
     crossfade.ready = true;
+    crossfade.fadeMs = 400;
   }, 2);
   return null;
 }
@@ -355,18 +472,22 @@ function Precompile({ onDone }: { onDone: () => void }) {
       counted = false;
     };
     const timer = window.setTimeout(async () => {
-      mark('compile-start');
+      mark("compile-start");
       try {
         scene.traverse((o) => {
-          const mat = (o as THREE.Mesh).material as THREE.Material & { map?: THREE.Texture | null };
+          const mat = (o as THREE.Mesh).material as THREE.Material & {
+            map?: THREE.Texture | null;
+          };
           if (mat && !Array.isArray(mat) && mat.map) gl.initTexture(mat.map);
         });
-        mark('textures-uploaded');
+        mark("textures-uploaded");
         // The scene renders into the post-processing buffer, not the screen,
         // and three.js compiles a different shader variant for that (linear
         // output, no tone mapping). Compile against an offscreen target so
         // the variants match what is actually drawn.
-        const target = new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType });
+        const target = new THREE.WebGLRenderTarget(1, 1, {
+          type: THREE.HalfFloatType,
+        });
         const previous = gl.getRenderTarget();
         gl.setRenderTarget(target);
         const ready = [gl.compileAsync(scene, camera)];
@@ -389,7 +510,7 @@ function Precompile({ onDone }: { onDone: () => void }) {
         gl.setRenderTarget(previous);
         await Promise.all(ready);
         target.dispose();
-        mark('compile-done');
+        mark("compile-done");
       } catch {
         /* fall through: the first frame compiles whatever is left */
       }
@@ -410,7 +531,11 @@ function shadowDepthScene() {
   const s = new THREE.Scene();
   const geo = new THREE.BoxGeometry();
   // shadow side of a front-sided material is its back side
-  const mat = () => new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking, side: THREE.BackSide });
+  const mat = () =>
+    new THREE.MeshDepthMaterial({
+      depthPacking: THREE.RGBADepthPacking,
+      side: THREE.BackSide,
+    });
   s.add(new THREE.Mesh(geo, mat()));
   const inst = new THREE.InstancedMesh(geo, mat(), 1);
   inst.setColorAt(0, new THREE.Color(1, 1, 1));
@@ -426,18 +551,25 @@ function postprocessingScenes(composer: PPComposer | null) {
     renderToScreen?: boolean;
     effects?: {
       luminancePass?: { fullscreenMaterial?: THREE.Material };
-      mipmapBlurPass?: { downsamplingMaterial?: THREE.Material; upsamplingMaterial?: THREE.Material };
+      mipmapBlurPass?: {
+        downsamplingMaterial?: THREE.Material;
+        upsamplingMaterial?: THREE.Material;
+      };
     }[];
   };
   const quad = new THREE.PlaneGeometry(2, 2);
   const toTarget = new THREE.Scene();
   const toScreen = new THREE.Scene();
-  const add = (s: THREE.Scene, m?: THREE.Material) => m && s.add(new THREE.Mesh(quad, m));
+  const add = (s: THREE.Scene, m?: THREE.Material) =>
+    m && s.add(new THREE.Mesh(quad, m));
   for (const pass of composer.passes as unknown as AnyPass[]) {
     add(pass.renderToScreen ? toScreen : toTarget, pass.fullscreenMaterial);
     // N8AO keeps its materials on full-screen helpers (the ...Quad fields)
-    for (const value of Object.values(pass as unknown as Record<string, unknown>)) {
-      const m = (value as { material?: { isMaterial?: boolean } } | null)?.material;
+    for (const value of Object.values(
+      pass as unknown as Record<string, unknown>,
+    )) {
+      const m = (value as { material?: { isMaterial?: boolean } } | null)
+        ?.material;
       if (m?.isMaterial && value !== pass) add(toTarget, m as THREE.Material);
     }
     for (const e of pass.effects ?? []) {
@@ -456,16 +588,16 @@ function ReadySignal() {
   const three = useThree();
   useEffect(() => {
     // `?debug` exposes the camera and shared positions for testing.
-    if (!location.search.includes('debug')) return;
-    import('./system').then(({ shared }) => {
+    if (!location.search.includes("debug")) return;
+    import("./system").then(({ shared }) => {
       (window as unknown as { __siu: unknown }).__siu = { three, shared };
     });
   }, [three]);
   useFrame(() => {
     if (done.current) return;
-    if (frames.current === 0) mark('first-frame');
+    if (frames.current === 0) mark("first-frame");
     if (++frames.current < 2) return;
-    mark('second-frame');
+    mark("second-frame");
     done.current = true;
     requestAnimationFrame(() => setWorldReady(true));
   });
@@ -490,8 +622,20 @@ function FrameStats() {
     start.current = performance.now();
   }, -100);
   useFrame(() => {
-    const w = window as unknown as { __siuStats?: { calls: number; triangles: number; frame: number; js: number } };
-    w.__siuStats = { calls: gl.info.render.calls, triangles: gl.info.render.triangles, frame: gl.info.render.frame, js: performance.now() - start.current };
+    const w = window as unknown as {
+      __siuStats?: {
+        calls: number;
+        triangles: number;
+        frame: number;
+        js: number;
+      };
+    };
+    w.__siuStats = {
+      calls: gl.info.render.calls,
+      triangles: gl.info.render.triangles,
+      frame: gl.info.render.frame,
+      js: performance.now() - start.current,
+    };
   }, 100);
   return null;
 }
@@ -502,7 +646,13 @@ function FrameStats() {
  * Not applied when the visitor explicitly switched Lite mode off.
  */
 function FrameRateGuard({ running }: { running: boolean }) {
-  const state = useRef({ warm: 0, bucketTime: 0, bucketFrames: 0, slow: 0, reported: false });
+  const state = useRef({
+    warm: 0,
+    bucketTime: 0,
+    bucketFrames: 0,
+    slow: 0,
+    reported: false,
+  });
   const invalidate = useThree((s) => s.invalidate);
 
   useEffect(() => {
@@ -530,7 +680,7 @@ function FrameRateGuard({ running }: { running: boolean }) {
       s.slow = fps < 45 ? s.slow + 1 : 0;
       s.bucketTime = 0;
       s.bucketFrames = 0;
-      if (s.slow >= 4 && tierStore.get().override !== 'off') {
+      if (s.slow >= 4 && tierStore.get().override !== "off") {
         s.reported = true;
         reportLowFrameRate();
       }
@@ -539,7 +689,10 @@ function FrameRateGuard({ running }: { running: boolean }) {
   return null;
 }
 
-class WorldErrorBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
+class WorldErrorBoundary extends Component<
+  { children: ReactNode },
+  { failed: boolean }
+> {
   state = { failed: false };
   static getDerivedStateFromError() {
     return { failed: true };

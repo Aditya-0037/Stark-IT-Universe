@@ -111,7 +111,7 @@ export function ArcSlider({ value, onChange, onCommit, onDragStart, label, value
             const v = (i + 1) * STEP;
             const [x, y] = pointAt(v);
             // The last label sits under the arc's end; the others outside it.
-            const [lx, ly] = v === 100 ? [CX + R, CY + 34] : pointAt(v, R + 26);
+            const [lx, ly] = v === 100 ? [CX + R, CY + 40] : pointAt(v, R + 26);
             const anchor = v === 100 || v === 50 ? 'middle' : v < 50 ? 'end' : 'start';
             const lit = value >= v;
             return (

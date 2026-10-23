@@ -1,0 +1,7 @@
+/about /about-us/ 301
+/about/ /about-us/ 301
+/contact /contact-us/ 301
+/contact/ /contact-us/ 301
+/hello-world /404.html 404
+/hello-world/ /404.html 404
+/wp-sitemap-users-1.xml /404.html 404

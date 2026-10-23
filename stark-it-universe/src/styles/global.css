@@ -15,12 +15,6 @@
     background: var(--night-sky);
   }
 
-  @media (prefers-reduced-motion: no-preference) {
-    html {
-      scroll-behavior: smooth;
-    }
-  }
-
   body {
     margin: 0;
     font-family: var(--font-body);
@@ -122,7 +116,8 @@
 .h1 {
   font-family: var(--font-display);
   font-weight: 500;
-  font-size: clamp(2rem, 0.9rem + 3.7vw, 4.15rem);
+  /* by width, and by height so the whole hero fits short screens */
+  font-size: min(clamp(2rem, 0.9rem + 3.7vw, 4.15rem), max(2rem, 7.2vh));
   line-height: 1.06;
   letter-spacing: -0.025em;
   color: #fff;
@@ -826,13 +821,15 @@
 .starfield,
 .space-zone {
   background-color: var(--night-sky);
-  background-image: url('./stars.svg'), url('./stars.svg');
+  background-image: url('./stars.svg'), url('./stars.svg'), var(--brand-night);
   background-size:
     640px 640px,
-    430px 430px;
+    430px 430px,
+    100% 100%;
   background-position:
     0 0,
-    217px 131px;
+    217px 131px,
+    0 0;
 }
 
 .space-zone {
@@ -846,11 +843,8 @@
   inset: 0;
   z-index: -1;
   pointer-events: none;
-  background:
-    radial-gradient(55% 900px at 82% 0%, rgba(49, 82, 245, 0.32), transparent 70%),
-    radial-gradient(45% 700px at 0% 30%, rgba(139, 92, 246, 0.16), transparent 70%),
-    radial-gradient(50% 800px at 100% 62%, rgba(6, 182, 212, 0.1), transparent 70%),
-    radial-gradient(60% 600px at 30% 100%, rgba(49, 82, 245, 0.18), transparent 70%);
+  /* a faint universe-blue lift only: the base is the brand night */
+  background: radial-gradient(55% 900px at 82% 0%, rgba(49, 82, 245, 0.14), transparent 70%);
 }
 
 /* =========================================================================
@@ -861,7 +855,7 @@
   display: flex;
   align-items: center;
   padding-top: calc(var(--header-space) + 8px);
-  padding-bottom: clamp(48px, 7vw, 96px);
+  padding-bottom: min(clamp(48px, 7vw, 96px), 6vh);
 }
 
 .hero {
@@ -927,6 +921,26 @@
   }
 }
 
+/* Short screens: the whole hero (to the trust line) stays in the first frame. */
+@media (min-width: 768px) and (max-height: 820px) {
+  .hero__sub {
+    font-size: 1.0625rem;
+    margin-top: 16px;
+  }
+
+  .hero__actions {
+    margin-top: 22px;
+  }
+
+  .hero__actions .btn {
+    padding-inline: 18px;
+  }
+
+  .hero__trust {
+    margin-top: 18px;
+  }
+}
+
 .hero__trust {
   display: flex;
   flex-wrap: wrap;
@@ -975,6 +989,10 @@
 .emblem__rays {
   transform-origin: 0 0;
   animation: emblem-spin 90s linear infinite;
+}
+
+.emblem[data-offscreen] :is(.emblem__spin, .emblem__counter, .emblem__rays) {
+  animation-play-state: paused;
 }
 
 @keyframes emblem-spin {
@@ -1771,9 +1789,7 @@
    Scene 6: switch on
    ========================================================================= */
 .scene--switch-on {
-  background:
-    radial-gradient(70% 60% at 25% 35%, rgba(49, 82, 245, 0.18), transparent 70%),
-    var(--night-sky);
+  background: var(--brand-night);
 }
 
 .switch {
@@ -2319,10 +2335,7 @@
    ========================================================================= */
 .scene--proof {
   overflow: hidden;
-  background:
-    radial-gradient(60% 40% at 90% 10%, rgba(139, 92, 246, 0.16), transparent 70%),
-    radial-gradient(50% 40% at 0% 60%, rgba(49, 82, 245, 0.2), transparent 70%),
-    var(--night-sky);
+  background: var(--brand-night);
 }
 
 .proof__ghosts {
@@ -2926,7 +2939,7 @@
    ========================================================================= */
 .site-footer {
   padding: clamp(56px, 7vw, 88px) 0 32px;
-  background: var(--night-sky);
+  background: var(--brand-night);
   border-top: 1px solid var(--hairline-dark);
   color: #fff;
 }
@@ -3012,6 +3025,12 @@
   display: block;
 }
 
+/* fades the 3D out before Proof (scroll driver) */
+.world__layer {
+  position: absolute;
+  inset: 0;
+}
+
 html[data-world='ready'] .world {
   opacity: 1;
 }
@@ -3055,22 +3074,38 @@ html[data-world='ready'] :is(.scene--classroom, .scene--switch-on) {
   border-color: #fff;
 }
 
-/* Lenis smooth scrolling */
+/* Lenis smooth scrolling (lenis/dist/lenis.css, 1.3.27) */
 html.lenis,
 html.lenis body {
   height: auto;
 }
 
-.lenis.lenis-smooth {
-  scroll-behavior: auto !important;
+.lenis:not(.lenis-autoToggle).lenis-stopped {
+  overflow: clip;
 }
 
-.lenis.lenis-smooth [data-lenis-prevent] {
+.lenis [data-lenis-prevent],
+.lenis [data-lenis-prevent-wheel],
+.lenis [data-lenis-prevent-touch],
+.lenis [data-lenis-prevent-vertical],
+.lenis [data-lenis-prevent-horizontal] {
   overscroll-behavior: contain;
 }
 
-.lenis.lenis-stopped {
-  overflow: hidden;
+.lenis.lenis-smooth iframe {
+  pointer-events: none;
+}
+
+.lenis.lenis-autoToggle {
+  transition-property: overflow;
+  transition-duration: 1ms;
+  transition-behavior: allow-discrete;
+}
+
+/* The story owns the input: no rubber-band at its edges. */
+html.story-control,
+html.story-control body {
+  overscroll-behavior-y: none;
 }
 
 /* Intro (scene 0). Content waits underneath and returns after 3 s even if
@@ -3229,26 +3264,78 @@ html[data-intro='play'] :is(main, .site-header, .section-index, .mobile-bar, .si
     pointer-events: none;
   }
 
-  /* Pinned scenes: the section is tall, its content sticks to the screen. */
-  html[data-tier='full'] .scene--planets,
-  html[data-tier='full'] .scene--route {
+  /*
+    Pinned scenes: the section is its scroll budget tall (src/lib/timeline.ts,
+    set as --budget by <Scene>); its content sticks to the screen. The copy
+    shows only around the scene's holds (opacity set by the scroll driver);
+    hidden copy takes no clicks.
+  */
+  html[data-tier='full'] .scene[data-budget] {
+    height: calc(var(--budget) * 1vh);
+    min-height: 0;
     padding: 0;
     scroll-margin-top: 0;
   }
 
-  html[data-tier='full'] .scene--planets {
-    height: 520vh;
+  /*
+    Story text (FULL): each scene's copy appears when a story step of that
+    scene has landed (fade and rise over 400 ms) and goes when a move to
+    another scene starts. The card / panel of the current item also fades
+    out while a move inside the scene plays. Only opacity and transform
+    animate; hidden copy takes no clicks.
+  */
+  html[data-tier='full'][data-story] .story-copy {
+    opacity: 0;
+    transform: translateY(12px);
+    visibility: hidden;
+    pointer-events: none;
+    transition:
+      opacity 0.22s ease,
+      transform 0.22s ease,
+      visibility 0s linear 0.22s;
   }
 
-  html[data-tier='full'] .scene--route {
-    height: 420vh;
+  html[data-tier='full'][data-story] .story-copy[data-story-shown] {
+    opacity: 1;
+    transform: none;
+    visibility: visible;
+    pointer-events: auto;
+    transition:
+      opacity 0.4s cubic-bezier(0.2, 0.7, 0.2, 1),
+      transform 0.4s cubic-bezier(0.2, 0.7, 0.2, 1),
+      visibility 0s;
   }
 
-  /* Descent: about two screens of scrolling drive the 3D camera path. */
+  html[data-tier='full'][data-story] :is(.svc-deck, .hotspot-panel) {
+    transition: opacity 0.4s cubic-bezier(0.2, 0.7, 0.2, 1);
+  }
+
+  /* drawn once before the first move, in view but 0.4 % opaque (scrollDriver: warmText) */
+  html[data-tier='full'][data-story][data-story-warm] .story-copy:not([data-story-shown]) {
+    opacity: 0.004;
+    transform: translateY(var(--warm-y, 0px));
+    visibility: visible;
+    will-change: opacity, transform;
+    transition: none;
+  }
+
+  html[data-tier='full'][data-story][data-story-warm] .scene__pin {
+    overflow: visible;
+  }
+
+  /* every service card too, not only the current one */
+  html[data-tier='full'][data-story][data-story-warm] .svc-deck__slot {
+    opacity: 1;
+    visibility: visible;
+    transition: none;
+  }
+
+  html[data-tier='full'][data-story-moving] :is(.svc-deck, .hotspot-panel) {
+    opacity: 0;
+    transition: opacity 0.2s ease;
+  }
+
   html[data-tier='full'] .scene--descent {
-    height: 300vh;
-    padding: 0;
-    scroll-margin-top: 0;
     background: none;
   }
 
@@ -3441,11 +3528,6 @@ html[data-intro='play'] :is(main, .site-header, .section-index, .mobile-bar, .si
   }
 
   /* Classroom: pinned; heading top-left, 3D room left, device panel right. */
-  html[data-tier='full'] .scene--classroom {
-    height: 340vh;
-    padding: 0;
-    scroll-margin-top: 0;
-  }
 
   html[data-tier='full'] .classroom-wrap {
     display: grid;
@@ -3586,12 +3668,82 @@ html[data-intro='play'] :is(main, .site-header, .section-index, .mobile-bar, .si
     border-color: transparent;
     box-shadow: none;
   }
+
+  /*
+   * Switch on is pinned to one screen: the heading, the dial and both
+   * controls (Switch on, Day / Night) must always fit in it, also on short
+   * windows (laptops at 125-150 % display scaling are only 600-700 px tall).
+   * The type and the dial scale with the screen height.
+   */
+  html[data-tier='full'] .switch {
+    height: 100%;
+    row-gap: min(32px, 2.4vh);
+  }
+
+  html[data-tier='full'] .switch .h2 {
+    font-size: min(clamp(1.9rem, 1.15rem + 2.7vw, 3.35rem), 6.4vh);
+  }
+
+  html[data-tier='full'] .switch .lead {
+    font-size: min(clamp(1.0625rem, 1rem + 0.3vw, 1.25rem), max(0.9375rem, 2.6vh));
+    margin-top: min(18px, 1.6vh);
+  }
+
+  html[data-tier='full'] .switch .arc {
+    max-width: min(380px, 33vh);
+  }
+
+  /* the knob shrinks with the dial, so it never covers the last label */
+  html[data-tier='full'] .switch .arc__thumb {
+    --knob: clamp(32px, 4.8vh, 48px);
+    width: var(--knob);
+    height: var(--knob);
+    margin: calc(var(--knob) / -2) 0 0 calc(var(--knob) / -2);
+  }
+
+  html[data-tier='full'] .switch__actions {
+    margin-top: min(20px, 1.6vh);
+  }
+}
+
+/* Switch on, FULL, narrower than the two-column layout: heading on top, the
+   controls at the bottom, the 3D room in between (it shrinks, never the controls). */
+@media (min-width: 768px) and (max-width: 1023px) {
+  html[data-tier='full'] .switch {
+    grid-template-rows: auto minmax(0, 1fr) auto;
+  }
+
+  html[data-tier='full'] .switch__stage {
+    min-height: 0;
+  }
+
+  html[data-tier='full'] .switch__controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    column-gap: 32px;
+  }
 }
 
 /* =========================================================================
    Preferences
    ========================================================================= */
 @media (prefers-reduced-motion: reduce) {
+  /* the story text crossfades (300 ms) as you pass its steps; nothing slides */
+  html[data-tier='full'][data-story] .story-copy {
+    transform: none;
+    transition:
+      opacity 0.3s linear,
+      visibility 0s linear 0.3s;
+  }
+
+  html[data-tier='full'][data-story] .story-copy[data-story-shown] {
+    transform: none;
+    transition:
+      opacity 0.3s linear,
+      visibility 0s;
+  }
+
   .emblem__spin,
   .emblem__counter,
   .emblem__rays {

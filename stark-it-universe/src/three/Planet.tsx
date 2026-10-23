@@ -6,10 +6,12 @@ import { services } from '../content/services';
 import { activeIndex, journey, PLANET_COUNT } from '../lib/journey';
 import { scrollToId } from '../lib/scroll';
 import { ModelOr } from './models';
+import { stage } from './stage';
 import type { OrbitDef } from './system';
 import { serviceIcon } from '../components/Icons';
 import type { ServiceIconName } from '../components/iconShapes';
 import { shared } from './system';
+import { overText } from '../lib/textZones';
 import { planetIconTexture, planetLabelTexture, planetTexture, ringTexture } from './textures';
 
 const atmosphereVertex = /* glsl */ `
@@ -58,6 +60,8 @@ interface Props {
 }
 
 const LABEL_H = 0.5;
+const labelPos = new THREE.Vector3();
+const camUp = new THREE.Vector3();
 
 /**
  * One service planet, with its service icon on the face and its name below,
@@ -92,11 +96,20 @@ export const Planet = forwardRef<THREE.Group, Props>(function Planet({ index, de
   );
   const hdr = useMemo(() => new THREE.Color(service.color).multiplyScalar(2.2), [service.color]);
 
+  const avoid = useRef(1);
   useFrame((state, dt) => {
     if (body.current && !reduced) body.current.rotation.y += dt * (0.25 - index * 0.03);
     if (labelMat.current) {
-      const dist = state.camera.position.distanceTo(shared.planets[index]);
-      labelMat.current.opacity = THREE.MathUtils.smoothstep(dist, def.size * 9, def.size * 15);
+      const p = shared.planets[index];
+      const dist = state.camera.position.distanceTo(p);
+      // never over copy: fade where the label would sit over a text panel
+      labelPos.copy(p).addScaledVector(camUp.set(0, 1, 0).applyQuaternion(state.camera.quaternion), -(def.size * 1.65 + LABEL_H / 2)).project(state.camera);
+      const sx = ((labelPos.x + 1) / 2) * state.size.width;
+      const sy = ((1 - labelPos.y) / 2) * state.size.height;
+      const target = overText(sx, sy, 24) ? 0 : 1;
+      avoid.current += (target - avoid.current) * (1 - Math.exp(-dt * 12));
+      // ... and gone once the satellite dives away from the system
+      labelMat.current.opacity = THREE.MathUtils.smoothstep(dist, def.size * 9, def.size * 15) * avoid.current * (1 - THREE.MathUtils.smoothstep(stage.descent, 0, 0.03));
     }
 
     // Highlight ring on the planet whose card is showing.

@@ -3,7 +3,6 @@ import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeom
 import { Builder, place, rgb, rng, vary, type BoxOpts, type Rgb } from './builder';
 import {
   BACK,
-  BASE,
   BUS_BAY,
   BUS_LANE,
   COURT,
@@ -44,9 +43,6 @@ const C = {
   solar: rgb('#2C4C82'),
   solarFrame: rgb('#C7CED8'),
   grass: rgb('#9CC77B'),
-  grassEdge: rgb('#86B566'),
-  soilTop: rgb('#D2AE84'),
-  soil: rgb('#B48B62'),
   path: rgb('#E8DCC6'),
   ground: rgb('#E3D4B9'),
   kerb: rgb('#D2C2A4'),
@@ -281,70 +277,17 @@ function rect(b: Builder, r: { x0: number; x1: number; z0: number; z1: number },
   }
 }
 
-// ---- the base ----------------------------------------------------------------
-function roundedRectShape(w: number, h: number, r: number) {
-  const s = new THREE.Shape();
-  const x = w / 2;
-  const y = h / 2;
-  s.moveTo(-x + r, -y);
-  s.lineTo(x - r, -y);
-  s.absarc(x - r, -y + r, r, -Math.PI / 2, 0, false);
-  s.lineTo(x, y - r);
-  s.absarc(x - r, y - r, r, 0, Math.PI / 2, false);
-  s.lineTo(-x + r, y);
-  s.absarc(-x + r, y - r, r, Math.PI / 2, Math.PI, false);
-  s.lineTo(-x, -y + r);
-  s.absarc(-x + r, -y + r, r, Math.PI, Math.PI * 1.5, false);
-  return s;
-}
-
-function base(b: Builder) {
-  const w = BASE.x1 - BASE.x0;
-  const d = BASE.z1 - BASE.z0;
-  const depth = 2.6;
-  const bevel = 0.6;
-  const g = new THREE.ExtrudeGeometry(roundedRectShape(w, d, BASE.r), {
-    depth,
-    bevelEnabled: true,
-    bevelThickness: bevel,
-    bevelSize: bevel,
-    bevelSegments: 3,
-    curveSegments: 6,
-  });
-  g.rotateX(-Math.PI / 2);
-  // the grass grid covers the top cap, which sits just below it
-  g.translate(0, -(depth + bevel) - 0.03, 0);
-  b.add(g, new THREE.Matrix4(), (p) => {
-    if (p.y > -0.4) return C.grassEdge;
-    const t = THREE.MathUtils.clamp((-p.y - 0.4) / 3.2, 0, 1);
-    return C.soilTop.clone().lerp(C.soil, t);
-  });
-  g.dispose();
-
-  // grass with gentle colour variation (one grid, corners pulled onto the curve)
-  const nx = 38;
-  const nz = 30;
-  const geo = new THREE.PlaneGeometry(w, d, nx, nz);
+// ---- the plot ----------------------------------------------------------------
+/**
+ * The school's lawn, flat on the ground inside the boundary wall (no slab,
+ * no soil edge: the town's ground runs on outside the wall), with gentle
+ * colour variation.
+ */
+function lawn(b: Builder) {
+  const w = 2 * WALL.x + 0.4;
+  const d = 2 * WALL.z + 0.4;
+  const geo = new THREE.PlaneGeometry(w, d, 38, 30);
   geo.rotateX(-Math.PI / 2);
-  const pos = geo.getAttribute('position') as THREE.BufferAttribute;
-  const ix = w / 2 - BASE.r;
-  const iz = d / 2 - BASE.r;
-  for (let i = 0; i < pos.count; i++) {
-    let x = pos.getX(i);
-    let z = pos.getZ(i);
-    if (Math.abs(x) > ix && Math.abs(z) > iz) {
-      const cx = Math.sign(x) * ix;
-      const cz = Math.sign(z) * iz;
-      const dx = x - cx;
-      const dz = z - cz;
-      const len = Math.hypot(dx, dz);
-      if (len > BASE.r) {
-        x = cx + (dx / len) * BASE.r;
-        z = cz + (dz / len) * BASE.r;
-      }
-    }
-    pos.setXYZ(i, x, 0, z);
-  }
   const r = rng(5);
   b.add(geo, new THREE.Matrix4(), (p) => {
     const v = 0.05 * Math.sin(p.x * 0.21 + p.z * 0.13) + 0.035 * Math.sin(p.x * 0.07 - p.z * 0.19 + 1.3) + (r() - 0.5) * 0.04;
@@ -584,6 +527,13 @@ function lamp(b: Builder, x: number, z: number, armDir: number) {
   b.box(x + ax - 0.2, 3.02, z - 0.14, x + ax + 0.2, 3.22, z + 0.14, C.lampHead);
 }
 
+/** The moving school bus (Life): centred on the origin, front towards +z, wheels on y = 0. */
+export function busGeometry() {
+  const b = new Builder();
+  bus(b, 0, -4.5, 4.5);
+  return b.build();
+}
+
 /** A yellow school bus along z, front towards +z. */
 function bus(b: Builder, x: number, z0: number, z1: number) {
   const w = 2.5;
@@ -666,7 +616,7 @@ export interface CampusGeometry {
 export function* buildCampusSteps(): Generator<void, CampusGeometry> {
   const b = new Builder();
   const glass = new Builder();
-  base(b);
+  lawn(b);
   yield;
   yield* school(b, glass);
   yield;

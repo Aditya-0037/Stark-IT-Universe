@@ -1,20 +1,22 @@
-import { useCallback, useEffect, useRef, useState, type MouseEvent } from 'react';
+import { useEffect, useRef, useState, type MouseEvent } from 'react';
 import { en } from '../content/en';
 import { services, type ServiceId } from '../content/services';
 import { Scene, SceneTitle } from '../components/Scene';
 import { ServiceCard } from '../components/ServiceCard';
 import { useFullLayout } from '../hooks/useFullLayout';
 import { prefersReducedMotion } from '../hooks/useReducedMotion';
-import { stickyScrollY, useStickyProgress } from '../hooks/useStickyProgress';
-import { activeIndex, PLANET_COUNT, progressFor } from '../lib/journey';
 import { registerAnchorResolver, scrollToId } from '../lib/scroll';
+import { measured } from '../lib/timeline';
+import { stepIndex } from '../story/steps';
+import { itemFor, story } from '../story/store';
 
 /**
  * Scene 2: five planets, five services.
  *
- * FULL: the scene is pinned; scrolling flies the 3D camera from planet to
- * planet and shows one service card at a time (the others are inert).
- * Tabs 01-05 (the HTML twins of the planets) jump to any service.
+ * FULL: the scene is pinned; each scroll gesture flies the 3D camera to the
+ * next planet, and its service card appears once the camera has arrived
+ * (the others are inert). Tabs 01-05 (the HTML twins of the planets) jump to
+ * any service.
  *
  * LITE: a swipeable deck on phones, a grid on larger screens; the tabs
  * scroll to a card.
@@ -24,36 +26,28 @@ export function Planets() {
   const full = useFullLayout();
   const sectionRef = useRef<HTMLElement>(null);
   const deckRef = useRef<HTMLDivElement>(null);
-  const [active, setActive] = useState<ServiceId>('smartclass');
-  // While a tab jump scrolls past other planets, keep its card showing.
-  const lock = useRef<{ id: ServiceId; until: number } | null>(null);
+  const [liteActive, setActive] = useState<ServiceId>('smartclass');
+  // FULL: the planet the story rests on (changes when a move lands).
+  const step = story.useStore((s) => s.step);
+  const active = full ? services[itemFor('planets', step)].id : liteActive;
 
-  const onProgress = useCallback((prog: number) => {
-    const id = services[activeIndex(prog, PLANET_COUNT)].id;
-    const l = lock.current;
-    if (l && performance.now() < l.until && id !== l.id) return;
-    lock.current = null;
-    setActive(id);
-  }, []);
-  useStickyProgress(sectionRef, 'planets', full, onProgress);
-
-  // FULL: links to #service-<id> scroll to that planet's place in the scene.
+  // FULL: links to #service-<id> travel to that planet's step.
   useEffect(() => {
     if (!full) return;
     return registerAnchorResolver((id) => {
       const m = /^service-(\w+)$/.exec(id);
       const i = m ? services.findIndex((s) => s.id === m[1]) : -1;
-      const section = sectionRef.current;
-      if (i < 0 || !section) return null;
-      const sid = services[i].id;
-      lock.current = { id: sid, until: performance.now() + 2200 };
-      setActive(sid);
-      const card = document.getElementById(`service-${sid}`);
-      // Focus once React has made the card interactive (it is inert until active).
-      requestAnimationFrame(() =>
-        requestAnimationFrame(() => card?.querySelector<HTMLElement>('.svc-card__flip')?.focus({ preventScroll: true })),
-      );
-      return { y: stickyScrollY(section, progressFor(i, PLANET_COUNT)), focus: null };
+      if (i < 0) return null;
+      const card = document.getElementById(`service-${services[i].id}`);
+      // Focus once the step has landed and its card is interactive (inert until then).
+      const stop = story.subscribe(() => {
+        const st = story.get();
+        if (st.moving || itemFor('planets', st.step) !== i) return;
+        stop();
+        requestAnimationFrame(() => card?.querySelector<HTMLElement>('.svc-card__flip')?.focus({ preventScroll: true }));
+      });
+      window.setTimeout(stop, 3000);
+      return { y: measured().stepY[stepIndex(`planet-${i + 1}`)], focus: null };
     });
   }, [full]);
 

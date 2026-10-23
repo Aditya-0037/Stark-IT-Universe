@@ -1,4 +1,4 @@
-# Stark IT Universe homepage. While this is a design demo on a staging URL,
-# change "Allow: /" to "Disallow: /" if it should not be indexed.
+# Development fallback. The production build regenerates this file from
+# VITE_SITE_URL and VITE_SITE_INDEXABLE; configure staging in .env.local.
 User-agent: *
 Allow: /

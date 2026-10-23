@@ -14,7 +14,7 @@ export const en = {
   ui: {
     navServices: 'Services',
     navHow: 'How we work',
-    navProjects: 'Projects',
+    navProjects: 'AMC & support',
     navBuild: 'Build a classroom',
     navFaq: 'FAQ',
     heroTitle: 'Smart *Classrooms* & IT Solutions for Schools in *Delhi-NCR*',
@@ -64,7 +64,7 @@ export const en = {
   hero: {
     eyebrow: 'Enter the Stark IT Universe',
     sub: "Plan your school's next technology upgrade with Stark IT Universe. Smart classes, interactive panels, projectors, laptops and CAT-6 networking, set up, maintained and repaired from our base in Ghaziabad.",
-    trust: ['50+ schools', '60,000+ students', 'Based in Ghaziabad'],
+    trust: ['Based in Ghaziabad', 'Installation & repairs', 'School AMC enquiries'],
     emblemAlt: 'The Stark IT Universe emblem: a golden SIU star with five service planets in orbit',
   },
 
@@ -89,9 +89,9 @@ export const en = {
     stationsLabel: 'Stations on the route',
     stations: [
       { code: '01', name: 'Consult', text: 'Tell us your rooms, what you already have and when you want it ready.' },
-      { code: '02', name: 'Demo', text: 'See the setup working before you decide. [confirm demo offer]' },
+      { code: '02', name: 'Demo', text: 'Discuss a demonstration with your room and lesson requirements.' },
       { code: '03', name: 'Install', text: 'We set up, connect and test everything on site.' },
-      { code: '04', name: 'Train', text: 'Teachers learn the everyday basics. [confirm what training includes]' },
+      { code: '04', name: 'Train', text: 'Agree teacher sessions, language and handover materials in your proposal.' },
       { code: '05', name: 'Support', text: 'Repairs and AMC whenever something needs attention.' },
     ],
   },
@@ -212,12 +212,6 @@ export const en = {
   },
 
   proof: {
-    eyebrow: '07 · Proof',
-    title: 'Our work in *schools*',
-    stats: [
-      { value: '50+', label: 'schools served' },
-      { value: '60,000+', label: 'students reached' },
-    ],
     projectsTitle: 'Projects',
     // To use a real photo: put the file in /public/photos and set `image`
     // (e.g. '/photos/dps-ghaziabad.jpg') and `alt` (what the photo shows).
@@ -270,19 +264,19 @@ export const en = {
       },
       {
         q: 'How much does a smart classroom cost?',
-        a: 'Smart class setups start from ₹70,000 + taxes. [What the starting package includes.] We prepare an itemised quote for your rooms.',
+        a: 'Cost depends on the display, room, installation and support scope. Request an itemised per-classroom quote with tax treatment and annual costs shown separately.',
       },
       {
         q: 'Can we rent a projector?',
-        a: 'Yes, projectors are available on rent. [Rental period, deposit and delivery terms.]',
+        a: 'Send the event date, venue and timings. Availability, screen, audio, technician, delivery, deposit and rental period are confirmed in the quote.',
       },
       {
         q: 'What does your AMC cover?',
-        a: 'AMC is available for smart classes, laptops and desktops. [Visits per year, parts, response time.]',
+        a: 'AMC is scoped against your equipment list. Visits, support hours, response targets, parts, travel and exclusions are agreed in writing before the contract starts.',
       },
       {
         q: 'Do you lay CAT-6 networking across the campus?',
-        a: 'Yes, we install CAT-6 networking for schools. [Scope and how the site survey works.]',
+        a: 'Discuss the number of points, campus layout and existing equipment. The proposal identifies cable routes, equipment, testing and handover requirements.',
       },
       {
         q: 'Where are you based?',
@@ -319,13 +313,6 @@ export const en = {
       email: 'Please check the email address, or leave it empty.',
       summary: (n: number) => `Please fix ${n} field${n === 1 ? '' : 's'} marked below.`,
     },
-    submit: 'Request My School Quote',
-    sending: 'Sending…',
-    success:
-      'Thanks! This is a design demo, so nothing was sent. On the live site our team will reply on your mobile number.',
-    successTitle: 'Request received',
-    privacy: 'We use these details only to reply to your enquiry.',
-    privacyLink: '[Privacy policy link]',
     direct: 'Talk to us directly',
     call: 'Call',
     whatsapp: 'WhatsApp',
@@ -338,8 +325,6 @@ export const en = {
     services: 'Services',
     contact: 'Contact',
     copyright: '© 2026 Stark IT Universe',
-    privacy: '[Privacy policy]',
-    terms: '[Terms]',
   },
 };
 

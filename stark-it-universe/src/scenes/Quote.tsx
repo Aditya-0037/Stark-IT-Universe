@@ -1,4 +1,5 @@
 import { contact } from '../content/contact';
+import { whatsappLink } from '../content/business';
 import { en } from '../content/en';
 import { Icon, type IconName } from '../components/Icons';
 import { QuoteForm } from '../components/QuoteForm';
@@ -11,7 +12,7 @@ export function Quote() {
   const q = en.quote;
   const links: { icon: IconName; label: string; value: string; href: string; external?: boolean }[] = [
     { icon: 'phone', label: q.call, value: contact.phoneDisplay, href: contact.phoneHref },
-    { icon: 'chat', label: q.whatsapp, value: contact.phoneDisplay, href: contact.whatsappHref, external: true },
+    { icon: 'chat', label: q.whatsapp, value: contact.phoneDisplay, href: whatsappLink(), external: true },
     { icon: 'mail', label: q.emailLabel, value: contact.email, href: contact.emailHref },
     { icon: 'pin', label: q.visit, value: contact.addressLines.join(', '), href: contact.mapsHref, external: true },
   ];

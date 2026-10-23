@@ -2,42 +2,46 @@ import { en } from '../content/en';
 import { Icon } from '../components/Icons';
 import { Ph, Rich } from '../components/Placeholder';
 import { Scene, SceneTitle } from '../components/Scene';
+import { approvedProjectSchools, approvedTestimonialPeople } from '../content/proofApprovals';
 
 const AVATAR_COLORS = ['var(--planet-ifp)', 'var(--planet-projector)'];
 
+const CHECKS = [
+  { title: 'Equipment and installation', text: 'Ask for the model, quantities, commissioning checklist and warranty route.' },
+  { title: 'Teacher handover', text: 'Agree the training language, attendees, session count and materials.' },
+  { title: 'Support in writing', text: 'Confirm covered assets, visits, response targets, parts and escalation.' },
+];
+
 /**
- * Scene 8: proof. Huge outlined "ghost" numbers sit behind the content.
- * Project cards are glass cards with visible placeholders (no invented
- * schools or results). The two testimonials are the existing quotes from
- * the brief. The FAQ uses native <details>/<summary>.
+ * Buyer checks and permissioned customer proof. Draft records are retained
+ * but rendered only once the matching publication approval is recorded.
  */
 export function Proof() {
   const p = en.proof;
+  const projects = p.projects.filter((proj) => approvedProjectSchools.includes(proj.school) && proj.image && !/\[.*\]/.test(proj.school + proj.detail));
+  const testimonials = p.testimonials.filter((t) => approvedTestimonialPeople.includes(t.name));
   return (
     <Scene id="proof" theme="dark" index="proof">
-      <div className="proof__ghosts" aria-hidden="true">
-        {p.stats.map((s) => (
-          <span key={s.value} className="ghost-number">
-            {s.value}
-          </span>
-        ))}
-      </div>
-
       <div className="container proof">
-        <SceneTitle id="proof" eyebrow={p.eyebrow} title={p.title} />
-
-        <ul className="proof__stats">
-          {p.stats.map((s) => (
-            <li key={s.value}>
-              <strong>{s.value}</strong>
-              <span>{s.label}</span>
+        <SceneTitle id="proof" eyebrow="07 · Before you decide" title="Know what your school is *getting*" intro="Use these checks to compare the complete installation and the support after it." />
+        <ul className="projects">
+          {CHECKS.map((proj, i) => (
+            <li key={i} className="project-card glass-card">
+              <h3 className="project-card__school">
+                {proj.title}
+              </h3>
+              <p className="project-card__detail">
+                {proj.text}
+              </p>
             </li>
           ))}
         </ul>
+        <p style={{ marginTop: 28 }}><a href="/contact-us/">Ask about a comparable school installation</a> and the available reference documents.</p>
 
+        {projects.length > 0 && <>
         <h3 className="h3 proof__subhead">{p.projectsTitle}</h3>
         <ul className="projects">
-          {p.projects.map((proj, i) => (
+          {projects.map((proj, i) => (
             <li key={i} className="project-card glass-card">
               {proj.image ? (
                 <img
@@ -64,10 +68,12 @@ export function Proof() {
             </li>
           ))}
         </ul>
+        </>}
 
+        {testimonials.length > 0 && <>
         <h3 className="h3 proof__subhead">{p.testimonialsTitle}</h3>
         <div className="testimonials">
-          {p.testimonials.map((t, i) => (
+          {testimonials.map((t, i) => (
             <figure key={t.name} className="testimonial">
               <span className="testimonial__mark" aria-hidden="true">
                 “
@@ -87,6 +93,7 @@ export function Proof() {
             </figure>
           ))}
         </div>
+        </>}
 
         <div id="faq" className="faq">
           <h3 className="h3 proof__subhead" tabIndex={-1} data-focus-target>

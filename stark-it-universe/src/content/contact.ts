@@ -8,7 +8,7 @@ export const contact = {
   whatsappHref: 'https://wa.me/917302479231',
   email: 'info@starkituniverse.in',
   emailHref: 'mailto:info@starkituniverse.in',
-  addressLines: ['KA-215, Pratap Vihar, Sector 12', 'Ghaziabad, U.P. 201009'],
+  addressLines: ['KA-215, Pratap Vihar, Sector 12', 'Ghaziabad, Uttar Pradesh 201009'],
   mapsHref:
     'https://www.google.com/maps/search/?api=1&query=' +
     encodeURIComponent('KA-215, Pratap Vihar, Sector 12, Ghaziabad, Uttar Pradesh 201009'),

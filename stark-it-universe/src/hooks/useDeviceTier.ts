@@ -94,10 +94,34 @@ function resolve(auto: Tier, override: Override, webgl: boolean): Tier {
   return auto;
 }
 
+/** The section in the middle of the screen (to come back to after a tier change). */
+function sectionInView() {
+  const mid = window.innerHeight / 2;
+  for (const el of document.querySelectorAll<HTMLElement>('main section[id]')) {
+    const r = el.getBoundingClientRect();
+    if (r.top <= mid && r.bottom >= mid) return el.id;
+  }
+  return null;
+}
+
 function apply(next: Partial<TierState>) {
+  const before = document.documentElement.dataset.tier;
+  const place = sectionInView();
   tierStore.set(next);
   const s = tierStore.get();
   const d = document.documentElement;
+  // FULL and LITE lay the page out very differently (pinned scenes are
+  // several screens tall in FULL): keep the visitor on the same section.
+  if (place && before !== s.tier) {
+    requestAnimationFrame(() =>
+      requestAnimationFrame(() => {
+        const el = document.getElementById(place);
+        if (!el) return;
+        const margin = parseFloat(getComputedStyle(el).scrollMarginTop) || 0;
+        window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - margin, behavior: 'instant' });
+      }),
+    );
+  }
   d.dataset.tier = s.tier;
   d.dataset.tierAuto = s.auto;
   if (s.reason) d.dataset.tierReason = s.reason;

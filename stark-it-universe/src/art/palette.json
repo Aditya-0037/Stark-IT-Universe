@@ -1,0 +1,47 @@
+{
+  "_note": "Every colour in the 3D world comes from here. Each entry is [light, base, shadow] (sRGB hex). The palette texture and docs/palette.png are generated from this file; GLBs are re-paletted to it.",
+  "brand": {
+    "night": ["#0B1640", "#060A22", "#04071A"],
+    "deepSpace": ["#16245C", "#0B1640", "#070E2C"],
+    "gold": ["#FFD27A", "#FFB52E", "#D98A10"],
+    "universeBlue": ["#93ACFF", "#3152F5", "#2238B0"],
+    "orbit": ["#A3B3FF", "#6F86FF", "#4B5FCC"],
+    "paper": ["#FFFFFF", "#F5F7FC", "#DCE2F0"]
+  },
+  "service": {
+    "smartclass": ["#B39BFA", "#8B5CF6", "#6538D0"],
+    "ifp": ["#5FD8EA", "#06B6D4", "#04879E"],
+    "projector": ["#F48CC3", "#EC4899", "#B8306F"],
+    "laptop": ["#8AB6FB", "#3B82F6", "#2459BE"],
+    "cat6": ["#5FD3AE", "#10B981", "#0B8459"]
+  },
+  "surface": {
+    "plaster": ["#FBF6EC", "#EFE6D6", "#D6C8AE"],
+    "sandstone": ["#EBCDA6", "#D9B48A", "#B58C60"],
+    "ochre": ["#F0D9A8", "#E3C07E", "#BF9A57"],
+    "brick": ["#CF8460", "#B5653F", "#874627"],
+    "accentBand": ["#8092D0", "#5B6FB5", "#3F4F8C"],
+    "roof": ["#E2D9C8", "#D2C7B4", "#B0A48E"],
+    "grass": ["#B8DA92", "#9CC77B", "#7AA75C"],
+    "earth": ["#D9886A", "#C96F4A", "#9C5134"],
+    "path": ["#F2E9D8", "#E8DCC6", "#CDBEA2"],
+    "treeA": ["#5B9654", "#3F7A3C", "#2C5A2C"],
+    "treeB": ["#7FB463", "#5E9E4A", "#467A36"],
+    "treeC": ["#8CBF6E", "#6CAA55", "#518A3F"],
+    "gulmohar": ["#F27A4E", "#E4502E", "#B3381E"],
+    "trunk": ["#94704F", "#7A5A3E", "#5A412C"],
+    "wood": ["#E2BC8C", "#C8955F", "#9A6E42"],
+    "steel": ["#8C93A1", "#59606C", "#3B414C"],
+    "slate": ["#4A5675", "#2F3A57", "#1E263B"],
+    "glass": ["#C3D4E3", "#8FA6BC", "#5E7690"],
+    "busYellow": ["#FFD066", "#F2B22A", "#C38810"],
+    "floorTile": ["#E6EAF4", "#D9E0F2", "#BFC8E0"],
+    "greenBoard": ["#3F6B57", "#2F5444", "#213C31"],
+    "dust": ["#CBBBA0", "#B4A285", "#928266"],
+    "field": ["#B5C487", "#9AAE6C", "#7D9050"],
+    "asphalt": ["#9A958F", "#827D77", "#66625D"],
+    "autoGreen": ["#6FB57A", "#3F8E52", "#2C6A3B"],
+    "skin": ["#D9A27A", "#B9805A", "#8E5E3E"],
+    "haze": ["#F3E8DA", "#EBDCCB", "#D9C8B4"]
+  }
+}

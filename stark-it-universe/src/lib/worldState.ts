@@ -9,3 +9,6 @@ export function setWorldReady(ready: boolean) {
   if (ready) d.dataset.world = 'ready';
   else delete d.dataset.world;
 }
+
+/** The 3D layer has faded out (past Build, before Proof): nothing to render. */
+export const worldOut = createStore({ hidden: false });

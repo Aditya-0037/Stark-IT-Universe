@@ -7,6 +7,8 @@
   /* Brand */
   --night-sky: #060a22;
   --deep-space: #0b1640;
+  /* the one brand night: every dark scene (style bible) */
+  --brand-night: linear-gradient(180deg, var(--night-sky) 0%, var(--deep-space) 100%);
   --siu-gold: #ffb52e;
   --universe-blue: #3152f5; /* on light; dark scenes override below */
   --orbit: #6f86ff;

@@ -8,7 +8,7 @@ import type { UiKey } from './en';
 export const hi: Partial<Record<UiKey, string>> = {
   navServices: 'सेवाएं', // needs human review
   navHow: 'हम कैसे काम करते हैं', // needs human review
-  navProjects: 'प्रोजेक्ट्स', // needs human review
+  navProjects: 'AMC और सहायता', // needs human review
   navBuild: 'क्लासरूम बनाएं', // needs human review
   navFaq: 'सवाल-जवाब', // needs human review
   heroTitle: '*दिल्ली-एनसीआर* के स्कूलों के लिए *स्मार्ट क्लासरूम* और आईटी समाधान', // needs human review

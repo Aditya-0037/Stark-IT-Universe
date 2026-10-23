@@ -1,7 +1,7 @@
 import { useFrame } from '@react-three/fiber';
-import { useRef } from 'react';
 import { classroom } from '../lib/classroomState';
 import { journey } from '../lib/journey';
+import { DIVE, litAt } from './dive';
 import { DESCENT_CUT, stage, smooth } from './stage';
 
 /**
@@ -21,7 +21,8 @@ export function applyStill(still: typeof stage.still) {
   stage.stretch = 0;
   stage.sky = campus ? 1 : 0;
   stage.portal = 0;
-  stage.vignette = room ? 0.18 : campus ? 0.3 : 0.5;
+  stage.windowLit = campus || room ? 1 : 0;
+  stage.vignette = room ? 0.18 : 0.2;
 }
 
 /**
@@ -31,7 +32,6 @@ export function applyStill(still: typeof stage.still) {
  * and changes are crossfaded by the camera rig.
  */
 export function Director({ reduced }: { reduced: boolean }) {
-  const last = useRef(0);
   useFrame((_, dt) => {
     const j = journey;
     const step = Math.min(dt, 0.1);
@@ -40,26 +40,23 @@ export function Director({ reduced }: { reduced: boolean }) {
       stage.descent = j.descent;
       applyStill(stage.still);
     } else {
-      // The descent follows the scroll with a little damping (on top of the
-      // smooth scrolling), so the camera path never jumps.
-      // Jumps (a link, a keyboard focus jump, a deep link) snap instead of
-      // flying the whole way while another scene is on screen.
-      const target = j.toClassroom > 0 ? 1 : j.descent;
-      const jump = Math.abs(target - last.current) > 0.15 || j.toClassroom > 0.3 || (target === 0 && j.toRoute < 1);
-      last.current = target;
-      stage.descent = jump ? target : stage.descent + (target - stage.descent) * (1 - Math.exp(-step * 5));
-      if (Math.abs(target - stage.descent) < 1e-4) stage.descent = target;
+      // The journey is already damped (the master timeline's playhead).
+      stage.descent = j.toClassroom > 0 ? 1 : j.descent;
       const d = stage.descent;
       stage.room = d >= DESCENT_CUT;
-      stage.campus = !stage.room && d > 0.16;
-      stage.space = !stage.room && d < 0.32;
-      stage.clouds = !stage.room && d > 0.05;
-      stage.cloudOpacity = smooth(0.05, 0.16, d);
-      stage.stars = 1 - smooth(0.04, 0.25, d);
-      stage.stretch = smooth(0.01, 0.09, d) * (1 - smooth(0.15, 0.26, d));
-      stage.sky = smooth(0.005, 0.26, d);
+      // space and the campus never show together: they swap inside the
+      // cloud deck, while the frame is fully clouded (see dive.ts)
+      stage.campus = !stage.room && d >= DIVE.swap;
+      stage.space = !stage.room && d < DIVE.swap;
+      stage.clouds = !stage.room && d > 0.03 && d < 0.62;
+      stage.cloudOpacity = smooth(0.05, 0.12, d);
+      stage.stars = 1 - smooth(0.05, 0.2, d);
+      stage.stretch = 0;
+      stage.sky = smooth(0.002, 0.06, d);
+      stage.windowLit = stage.room ? 1 : litAt(d);
       // lighter vignette by day; the room's own value before the window cut
-      stage.vignette = stage.room ? 0.18 : 0.5 - 0.2 * stage.sky - 0.12 * smooth(0.9, 0.96, d);
+      // a light vignette only, so the space night stays the brand night to the edges
+      stage.vignette = stage.room ? 0.18 : 0.2 - 0.02 * smooth(0.9, 0.96, d);
     }
 
     // In the Classroom scene the room is lit (board, projector, lights on);

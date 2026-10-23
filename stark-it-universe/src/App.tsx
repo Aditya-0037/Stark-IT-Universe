@@ -21,6 +21,8 @@ import { Quote } from './scenes/Quote';
 import { Route } from './scenes/Route';
 import { SpaceHero } from './scenes/SpaceHero';
 import { SwitchOn } from './scenes/SwitchOn';
+import { business } from './content/business';
+import { watchContactEvents } from './lib/analytics';
 
 /**
  * Loads the 3D layer (FULL tier only) with a dynamic import once the page
@@ -71,10 +73,12 @@ export function App() {
   useEffect(() => {
     const stopTier = watchTier();
     const stopSpy = startScrollSpy();
+    const stopEvents = watchContactEvents();
     document.documentElement.dataset.hydrated = 'true';
     return () => {
       stopTier();
       stopSpy();
+      stopEvents();
     };
   }, []);
   useInPageLinks();
@@ -105,6 +109,15 @@ export function App() {
               <Configurator />
             </div>
             <Proof />
+            <section className="homepage-resources" data-theme="light" aria-labelledby="school-planning-title">
+              <div className="container">
+                <h2 id="school-planning-title">Plan the setup. Know the support.</h2>
+                <p>{business.description}</p>
+                <div className="content-links">
+                  <a href="/services/">Explore all services ↗</a><a href="/amc/">Compare AMC scopes ↗</a><a href="/guides/smart-class-cost/">Plan classroom costs ↗</a><a href="/interactive-flat-panel/repair/">Request digital board repair ↗</a><a href="/locations/ghaziabad/">Ghaziabad team & coverage ↗</a><a href="/contact-us/?request=visit#quote-form" data-event="site_visit">Request a site visit ↗</a>
+                </div>
+              </div>
+            </section>
             <Quote />
           </main>
           <Footer />

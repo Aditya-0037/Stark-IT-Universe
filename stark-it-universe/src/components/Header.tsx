@@ -10,9 +10,9 @@ import { LangToggle } from './LangToggle';
 import { LiteToggle } from './LiteToggle';
 
 const LINKS: { href: string; k: UiKey }[] = [
-  { href: '#planets', k: 'navServices' },
+  { href: '/services/', k: 'navServices' },
   { href: '#route', k: 'navHow' },
-  { href: '#proof', k: 'navProjects' },
+  { href: '/amc/', k: 'navProjects' },
   { href: '#build', k: 'navBuild' },
   { href: '#faq', k: 'navFaq' },
 ];

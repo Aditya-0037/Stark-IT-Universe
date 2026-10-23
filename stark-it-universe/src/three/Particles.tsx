@@ -107,10 +107,11 @@ export function Starfield({ reduced, count = 2200 }: { reduced: boolean; count?:
 
   const nebulae = useMemo(
     () => [
-      { pos: [70, 30, -150], scale: 170, color: '#3152F5', seed: 3, opacity: 0.3 },
-      { pos: [-110, -10, -120], scale: 150, color: '#8B5CF6', seed: 7, opacity: 0.22 },
-      { pos: [20, -60, -160], scale: 130, color: '#06B6D4', seed: 9, opacity: 0.14 },
-      { pos: [-40, 70, 120], scale: 160, color: '#3152F5', seed: 5, opacity: 0.2 },
+      // tints over the brand night, kept faint so every night reads the same
+      { pos: [70, 30, -150], scale: 170, color: '#3152F5', seed: 3, opacity: 0.17 },
+      { pos: [-110, -10, -120], scale: 150, color: '#8B5CF6', seed: 7, opacity: 0.1 },
+      { pos: [20, -60, -160], scale: 130, color: '#06B6D4', seed: 9, opacity: 0.07 },
+      { pos: [-40, 70, 120], scale: 160, color: '#3152F5', seed: 5, opacity: 0.12 },
     ],
     [],
   );

@@ -1,8 +1,8 @@
 import { contact } from '../content/contact';
 import { en } from '../content/en';
 import { services } from '../content/services';
+import { servicePaths, whatsappLink } from '../content/business';
 import { BrandLogo } from './BrandLogo';
-import { Ph } from './Placeholder';
 
 export function Footer() {
   const f = en.footer;
@@ -20,7 +20,7 @@ export function Footer() {
           <ul>
             {services.map((s) => (
               <li key={s.id}>
-                <a href={`#service-${s.id}`}>{s.name}</a>
+                <a href={servicePaths[s.id]}>{s.name}</a>
               </li>
             ))}
           </ul>
@@ -32,7 +32,7 @@ export function Footer() {
               <a href={contact.phoneHref}>{contact.phoneDisplay}</a>
             </li>
             <li>
-              <a href={contact.whatsappHref} target="_blank" rel="noopener noreferrer">
+              <a href={whatsappLink()} target="_blank" rel="noopener noreferrer">
                 WhatsApp<span className="sr-only"> {en.a11y.newTab}</span>
               </a>
             </li>
@@ -48,12 +48,15 @@ export function Footer() {
           </ul>
         </div>
       </div>
+      <nav className="container site-footer__extra" aria-label="More about SIU">
+        <a href="/amc/">AMC & support</a><a href="/about-us/">About SIU</a><a href="/guides/">Buying guides</a><a href="/locations/">Service areas</a><a href="/solutions/cbse-schools/">Private schools</a><a href="/solutions/government-school-ict/">Government & ICT</a><a href="/solutions/csr-smart-classrooms/">CSR projects</a><a href="/contact-us/">Contact & site visit</a>
+      </nav>
       <div className="container site-footer__base">
         <div className="site-footer__base-row">
           <p>{f.copyright}</p>
           <p className="site-footer__legal">
-            <Ph>{f.privacy}</Ph>
-            <Ph>{f.terms}</Ph>
+            <a href="/privacy/">Privacy</a>
+            <a href="/terms/">Terms</a>
           </p>
         </div>
       </div>

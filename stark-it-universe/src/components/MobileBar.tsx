@@ -1,4 +1,5 @@
 import { contact } from '../content/contact';
+import { whatsappLink } from '../content/business';
 import { en } from '../content/en';
 import { Ui } from '../lib/i18n';
 import { Icon } from './Icons';
@@ -11,7 +12,7 @@ export function MobileBar() {
         <Icon name="phone" size={20} />
         <span>{en.mobileBar.call}</span>
       </a>
-      <a href={contact.whatsappHref} target="_blank" rel="noopener noreferrer" className="mobile-bar__item">
+      <a href={whatsappLink()} target="_blank" rel="noopener noreferrer" className="mobile-bar__item">
         <Icon name="chat" size={20} />
         <span>{en.mobileBar.whatsapp}</span>
         <span className="sr-only"> {en.a11y.newTab}</span>
