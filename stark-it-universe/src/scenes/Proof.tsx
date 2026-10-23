@@ -2,7 +2,6 @@ import { en } from '../content/en';
 import { Icon } from '../components/Icons';
 import { Ph, Rich } from '../components/Placeholder';
 import { Scene, SceneTitle } from '../components/Scene';
-import { approvedProjectSchools, approvedTestimonialPeople } from '../content/proofApprovals';
 
 const AVATAR_COLORS = ['var(--planet-ifp)', 'var(--planet-projector)'];
 
@@ -13,13 +12,14 @@ const CHECKS = [
 ];
 
 /**
- * Buyer checks and permissioned customer proof. Draft records are retained
- * but rendered only once the matching publication approval is recorded.
+ * Buyer checks, then the school projects (glass cards with visible
+ * placeholders until real photos and school names are set in en.ts) and the
+ * school testimonials. Both are always shown (the owner's decision).
  */
 export function Proof() {
   const p = en.proof;
-  const projects = p.projects.filter((proj) => approvedProjectSchools.includes(proj.school) && proj.image && !/\[.*\]/.test(proj.school + proj.detail));
-  const testimonials = p.testimonials.filter((t) => approvedTestimonialPeople.includes(t.name));
+  const projects = p.projects;
+  const testimonials = p.testimonials;
   return (
     <Scene id="proof" theme="dark" index="proof">
       <div className="container proof">
