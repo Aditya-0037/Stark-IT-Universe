@@ -158,7 +158,7 @@ While a file is missing, the page draws a placeholder: a gold "SIU" circle with 
 
 ## Real photos
 
-Put permissioned photos in `public/photos/`. Publish case studies only with the school's permission, named scope, dates and attributable results. Draft cards and quotations in `en.ts` are excluded from public output until their publication approval is recorded in `src/content/proofApprovals.ts`; project cards also require an actual image and completed copy. `/projects/` is `noindex` until it contains actual case studies. Use 4:3 photos about 1200 px wide, compressed to WebP or AVIF.
+The homepage Proof section always shows the project cards and the school testimonials from `src/content/en.ts` (the owner's decision; do not hide or filter them). Each project card shows a visible placeholder until its photo is added: put the photo in `public/photos/`, set its `image` and `alt` in `en.ts`, and replace the bracketed school and detail text at the same time. Publish full case studies only with the school's permission, named scope, dates and attributable results; `/projects/` is `noindex` until it contains actual case studies. Use 4:3 photos about 1200 px wide, compressed to WebP or AVIF.
 
 ## glTF models
 
