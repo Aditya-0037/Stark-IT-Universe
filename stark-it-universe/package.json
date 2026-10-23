@@ -5,8 +5,8 @@
   "type": "module",
   "description": "Front-end-only design demo of the Stark IT Universe homepage.",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc --noEmit && vite build && vite build --ssr src/entry-server.tsx --outDir dist-ssr && node scripts/prerender.mjs",
+    "dev": "node init && vite",
+    "build": "node init && tsc --noEmit && vite build && vite build --ssr src/entry-server.tsx --outDir dist-ssr && node scripts/prerender.mjs",
     "preview": "node scripts/serve.mjs",
     "check:seo": "node scripts/verify-site.mjs",
     "check:browser": "node scripts/check-browser.mjs",
